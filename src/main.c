@@ -21,6 +21,10 @@ static XtTrackRenderer renderer;
 static XtKeys keys;
 static XtPhraseEditor phrase_editor;
 
+// Interrupt stuff.
+volatile uint16_t vbl_ticks;
+extern void vbl_isr(void);  // <-- src/irq.s
+
 int video_init(void)
 {
 	x68k_crtc_init_default();
@@ -182,6 +186,20 @@ int main(int argc, char **argv)
 	xt_keys_init(&keys);
 	xt_phrase_editor_init(&phrase_editor);
 
+	volatile uint8_t *ierb = (volatile uint8_t *)0xE88009;
+	volatile uint8_t *imrb = (volatile uint8_t *)0xE88015;
+
+	// Setting with the IOCS call seems to be fine.
+	_iocs_b_intvcs(0x46, vbl_isr);
+
+	// Results aren't different with this.
+//	volatile uint32_t *vector = (volatile uint32_t *)0x118;
+//	*vector = (uint32_t)&vbl_isr;
+
+	// Enable the VBL int.
+	*ierb = 0x40;
+	*imrb = 0x40;
+
 	// Set up xt with some test data
 	set_demo_meta();
 	set_demo_instruments();
@@ -189,6 +207,12 @@ int main(int argc, char **argv)
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
 	{
+		const struct iocs_txfillptr fill =
+		{
+			8, 8, 16, 16,
+			0x5555,
+		};
+		_iocs_txfill(&fill);
 		if (xt_keys_pressed(&keys, XT_KEY_CR))
 		{
 			// Take the playback position from the editor.
@@ -203,25 +227,12 @@ int main(int argc, char **argv)
 			}
 		}
 
-		
-		if (xt_keys_pressed(&keys, XT_KEY_F2))
-		{
-			x68k_pcg_set_lh(xt_keys_held(&keys, XT_KEY_SHIFT) | (xt_keys_held(&keys, XT_KEY_CTRL) ? 2 : 0));
-		}
-		if (xt_keys_pressed(&keys, XT_KEY_F3))
-		{
-			x68k_pcg_set_vres(xt_keys_held(&keys, XT_KEY_SHIFT) | (xt_keys_held(&keys, XT_KEY_CTRL) ? 2 : 0));
-		}
-		if (xt_keys_pressed(&keys, XT_KEY_F4))
-		{
-			x68k_pcg_set_hres(xt_keys_held(&keys, XT_KEY_SHIFT) | (xt_keys_held(&keys, XT_KEY_CTRL) ? 2 : 0));
-		}
-
 		// TODO: These should be interrupt-driven using the OPM's timer.
 		xt_tick(&xt);
 		xt_phrase_editor_tick(&phrase_editor, &xt.track, &keys);
 		xt_update_opm_registers(&xt);
 
+		// TODO: Remove this, and have it be fired off by the VBL count.
 		x68k_wait_for_vsync();
 		xt_keys_update(&keys);
 
@@ -229,7 +240,7 @@ int main(int argc, char **argv)
 		// commanded by the main Xt object.
 		if (xt.playing)
 		{
-			const uint16_t yscroll = xt.current_phrase_row * 8;
+			const uint16_t yscroll = (xt.current_phrase_row - 16) * 8;
 			x68k_pcg_set_bg0_yscroll(yscroll);
 			x68k_pcg_set_bg1_yscroll(yscroll);
 			xt_track_renderer_tick(&renderer, &xt, xt.current_frame);
@@ -243,6 +254,9 @@ int main(int argc, char **argv)
 			xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
 			xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
 		}
+
+		// This should be increasing every interrupt.
+		printf("VBL ticks: %d\n", vbl_ticks);
 
 		x68k_pcg_finish_sprites();
 	}
