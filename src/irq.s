@@ -1,7 +1,7 @@
 	.extern	vbl_ticks
 
-.global	vbl_isr
+.global	irq_vbl
 
-vbl_isr:
+irq_vbl:
 	addi.w	#1, vbl_ticks
 	rts

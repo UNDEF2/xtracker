@@ -11,6 +11,7 @@
 #include "x68000/x68k_vbl.h"
 
 #include "common.h"
+#include "irq.h"
 #include "xt.h"
 #include "xt_render.h"
 #include "xt_phrase_editor.h"
@@ -20,10 +21,6 @@ static Xt xt;
 static XtTrackRenderer renderer;
 static XtKeys keys;
 static XtPhraseEditor phrase_editor;
-
-// Interrupt stuff.
-volatile uint16_t vbl_ticks;
-extern void vbl_isr(void);  // <-- src/irq.s
 
 int video_init(void)
 {
@@ -42,7 +39,7 @@ int video_init(void)
 
 	// Load font tileset
 	FILE *f;
-	f = fopen("pcg.bin", "rb");
+	f = fopen("PCG.BIN", "rb");
 	if (!f)
 	{
 		fprintf(stderr, "Error: Could not load PCG data.\n");
@@ -190,11 +187,11 @@ int main(int argc, char **argv)
 	volatile uint8_t *imrb = (volatile uint8_t *)0xE88015;
 
 	// Setting with the IOCS call seems to be fine.
-	_iocs_b_intvcs(0x46, vbl_isr);
+	_iocs_b_intvcs(0x46, irq_vbl);
 
 	// Results aren't different with this.
 //	volatile uint32_t *vector = (volatile uint32_t *)0x118;
-//	*vector = (uint32_t)&vbl_isr;
+//	*vector = (uint32_t)&irq_vbl;
 
 	// Enable the VBL int.
 	*ierb = 0x40;
