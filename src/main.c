@@ -16,6 +16,7 @@
 #include "xt_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
+#include "xt_vbl.h"
 
 static Xt xt;
 static XtTrackRenderer renderer;
@@ -183,19 +184,7 @@ int main(int argc, char **argv)
 	xt_keys_init(&keys);
 	xt_phrase_editor_init(&phrase_editor);
 
-	volatile uint8_t *ierb = (volatile uint8_t *)0xE88009;
-	volatile uint8_t *imrb = (volatile uint8_t *)0xE88015;
-
-	// Setting with the IOCS call seems to be fine.
-	_iocs_b_intvcs(0x46, irq_vbl);
-
-	// Results aren't different with this.
-//	volatile uint32_t *vector = (volatile uint32_t *)0x118;
-//	*vector = (uint32_t)&irq_vbl;
-
-	// Enable the VBL int.
-	*ierb = 0x40;
-	*imrb = 0x40;
+	xt_vbl_init();
 
 	// Set up xt with some test data
 	set_demo_meta();
@@ -229,8 +218,7 @@ int main(int argc, char **argv)
 		xt_phrase_editor_tick(&phrase_editor, &xt.track, &keys);
 		xt_update_opm_registers(&xt);
 
-		// TODO: Remove this, and have it be fired off by the VBL count.
-		x68k_wait_for_vsync();
+		xt_vbl_wait(0);
 		xt_keys_update(&keys);
 
 		// During playback, the scroll position and displayed frame are
@@ -251,12 +239,9 @@ int main(int argc, char **argv)
 			xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
 			xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
 		}
-
-		// This should be increasing every interrupt.
-		printf("VBL ticks: %d\n", vbl_ticks);
-
 		x68k_pcg_finish_sprites();
 	}
+	xt_vbl_shutdown();
 
 	return 0;
 }

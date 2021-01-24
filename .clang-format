@@ -1,0 +1,22 @@
+AlignAfterOpenBracket: Align
+AlignOperands: true
+
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: true
+
+BreakBeforeBraces: Allman
+
+IndentCaseLabels: true
+
+ColumnLimit: 80
+TabWidth: 4
+IndentWidth: 4
+UseTab: ForIndentation
+
+PointerBindsToType: false
+SpaceBeforeAssignmentOperators: true
+SpacesBeforeTrailingComments: 1
+SpaceInEmptyParentheses: false
+Cpp11BracedListStyle: false
