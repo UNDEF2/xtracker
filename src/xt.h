@@ -50,39 +50,45 @@ typedef struct XtFmChannelState
 	uint8_t reg_28_cache_prev;
 	uint8_t reg_30_cache_prev;
 
-	uint16_t portamento_speed;
-	uint16_t amplitude;
+	int16_t portamento_speed;
+	int16_t amplitude;
 
 	XtFmKeyState key_state;
 	XtFmKeyState key_state_prev;
-	uint16_t key_on_delay_count;  // Decrements when nonzero on tick.
-	uint16_t mute_delay_count;
-	uint16_t cut_delay_count;
+	int16_t key_on_delay_count;  // Decrements when nonzero on tick.
+	int16_t mute_delay_count;
+	int16_t cut_delay_count;
 
 	uint8_t reg_20_overlay;
 	int8_t tune;  // Fine offset to be applied to pitch fraction.
 
 	XtFmKeyCommand key_command;
 
-	uint16_t cache_invalid;
+	int16_t cache_invalid;
 } XtFmChannelState;
+
+typedef struct XtConfig
+{
+	int16_t row_highlight[2];
+} XtConfig;
 
 typedef struct Xt
 {
 	XtTrack track;
 	XtFmChannelState fm_state[XT_FM_CHANNEL_COUNT];
+	XtConfig config;
 
-	uint16_t current_frame;  // Index into the entire track.
-	uint16_t current_phrase_row;  // Index into the current phrase.
+	int16_t current_frame;  // Index into the entire track.
+	int16_t current_phrase_row;  // Index into the current phrase.
 
-	uint16_t current_ticks_per_row;  // Ticks per row.
-	uint16_t tick_counter;  // Counts down from the period.
-	uint16_t timer_period;  // Period of timer ticks.
+	int16_t current_ticks_per_row;  // Ticks per row.
+	int16_t tick_counter;  // Counts down from the period.
+	int16_t timer_period;  // Period of timer ticks.
 
-	uint16_t noise_enable;
+	int16_t noise_enable;
 
-	uint16_t playing;
-	uint16_t repeat_frame;
+	int16_t playing;
+	int16_t repeat_frame;
 } Xt;
 
 void xt_init(Xt *xt);

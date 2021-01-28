@@ -92,7 +92,7 @@ static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
 static inline uint16_t get_x_for_column(uint16_t column,
                                         XtEditorCursorSubPos sub_pos)
 {
-	const uint16_t base = 7 * 8 * column;
+	const uint16_t base = 8 * 8 * column;
 	switch (sub_pos)
 	{
 		default:
@@ -100,21 +100,15 @@ static inline uint16_t get_x_for_column(uint16_t column,
 		case CURSOR_SUBPOS_NOTE:
 			return base;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-			return base + 22;
+			return base + 24;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
-			return base + 26;
+			return base + 32;
 		case CURSOR_SUBPOS_CMD1:
-			return base + 31;
+			return base + 40;
 		case CURSOR_SUBPOS_ARG1_HIGH:
-			return base + 35;
+			return base + 48;
 		case CURSOR_SUBPOS_ARG1_LOW:
-			return base + 39;
-		case CURSOR_SUBPOS_CMD2:
-			return base + 43;
-		case CURSOR_SUBPOS_ARG2_HIGH:
-			return base + 47;
-		case CURSOR_SUBPOS_ARG2_LOW:
-			return base + 51;
+			return base + 56;
 	}
 }
 
@@ -251,21 +245,15 @@ static inline uint16_t handle_number_entry(XtPhraseEditor *p, XtTrack *t,
 					cell->inst &= 0xF0;
 					cell->inst |= m->value;
 					return 1;
+				// TODO: Make this automagically handle a variable number of
+				// command columns.
 				case CURSOR_SUBPOS_ARG1_HIGH:
-					cell->arg1 &= 0x0F;
-					cell->arg1 |= m->value << 4;
+					cell->cmd[0].arg &= 0x0F;
+					cell->cmd[0].arg |= m->value << 4;
 					return 1;
 				case CURSOR_SUBPOS_ARG1_LOW:
-					cell->arg1 &= 0xF0;
-					cell->arg1 |= m->value;
-					return 1;
-				case CURSOR_SUBPOS_ARG2_HIGH:
-					cell->arg2 &= 0x0F;
-					cell->arg2 |= m->value << 4;
-					return 1;
-				case CURSOR_SUBPOS_ARG2_LOW:
-					cell->arg2 &= 0xF0;
-					cell->arg2 |= m->value;
+					cell->cmd[0].arg &= 0xF0;
+					cell->cmd[0].arg |= m->value;
 					return 1;
 			}
 		}
@@ -334,10 +322,7 @@ static inline uint16_t handle_command_entry(XtPhraseEditor *p, XtTrack *t,
 				default:
 					return 0;
 				case CURSOR_SUBPOS_CMD1:
-					cell->cmd1 = m->value;
-					return 1;
-				case CURSOR_SUBPOS_CMD2:
-					cell->cmd2 = m->value;
+					cell->cmd[0].cmd = m->value;
 					return 1;
 			}
 		}
@@ -421,7 +406,6 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 				break;
 			case CURSOR_SUBPOS_INSTRUMENT_HIGH:
 			case CURSOR_SUBPOS_ARG1_HIGH:
-			case CURSOR_SUBPOS_ARG2_HIGH:
 				if (handle_number_entry(p, t, k))
 				{
 					p->channel_dirty[p->column] = 1;
@@ -430,7 +414,6 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 				break;
 			case CURSOR_SUBPOS_INSTRUMENT_LOW:
 			case CURSOR_SUBPOS_ARG1_LOW:
-			case CURSOR_SUBPOS_ARG2_LOW:
 				if (handle_number_entry(p, t, k))
 				{
 					p->channel_dirty[p->column] = 1;
@@ -439,7 +422,6 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 				}
 				break;
 			case CURSOR_SUBPOS_CMD1:
-			case CURSOR_SUBPOS_CMD2:
 				if (handle_command_entry(p, t, k))
 				{
 					p->channel_dirty[p->column] = 1;
@@ -448,22 +430,49 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 				break;
 		}
 	}
-	p->yscroll = ((p->row - 16) * 8);
 }
 
-void xt_phrase_editor_render(const XtPhraseEditor *p)
+void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
+                                  int16_t cam_x, int16_t cam_y)
 {
 	if (p->state != EDITOR_NORMAL) return;
-	const uint16_t draw_x = get_x_for_column(p->column, p->sub_pos);
-	const uint16_t draw_y = (p->row * 8) - p->yscroll;
-	const uint16_t attr = (p->sub_pos == CURSOR_SUBPOS_NOTE) ?
-	                      PCG_ATTR(0, 0, 0x1, 0x20) :
-	                      PCG_ATTR(0, 0, 0x1, 0x21);
+	const uint8_t prio = 2;
+	const uint8_t cursor_pal = 1;
+	const uint8_t cursor_dark_pal = 5;
+	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - cam_x;
+	const int16_t draw_y = (p->row * 8) - cam_y;
 
-	x68k_pcg_add_sprite(draw_x, draw_y, attr, 1);
-	if (p->sub_pos == CURSOR_SUBPOS_NOTE)
+	const uint16_t attr = PCG_ATTR(0, 0, cursor_pal, 0x09);
+	const uint16_t attr_dark = PCG_ATTR(0, 0, cursor_dark_pal, 0x09);
+
+	switch (p->sub_pos)
 	{
-		x68k_pcg_add_sprite(draw_x + 6, draw_y, attr, 2);
+		default:
+			break;
+		case CURSOR_SUBPOS_NOTE:
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr+1, prio);
+			break;
+		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark, prio);
+			break;
+		case CURSOR_SUBPOS_INSTRUMENT_LOW:
+			x68k_pcg_add_sprite(draw_x - 8, draw_y, attr_dark, prio);
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			break;
+		case CURSOR_SUBPOS_CMD1:
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark + 1, prio);
+			break;
+		case CURSOR_SUBPOS_ARG1_HIGH:
+			x68k_pcg_add_sprite(draw_x - 8, draw_y, attr_dark, prio);
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark, prio);
+			break;
+		case CURSOR_SUBPOS_ARG1_LOW:
+			x68k_pcg_add_sprite(draw_x - 16, draw_y, attr_dark + 1, prio);
+			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			break;
 	}
-//	printf("Frame %d Row %d Column %d Sub %d\n", p->frame, p->row, p->column, p->sub_pos);
 }

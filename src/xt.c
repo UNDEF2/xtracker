@@ -207,6 +207,10 @@ static inline void xt_playback_counters(Xt *xt)
 void xt_init(Xt *xt)
 {
 	memset(xt, 0, sizeof(*xt));
+
+	// Set default settings.
+	xt->config.row_highlight[0] = 4;
+	xt->config.row_highlight[1] = 16;
 }
 
 void xt_tick(Xt *xt)
@@ -230,8 +234,10 @@ void xt_tick(Xt *xt)
 		if (xt->tick_counter == 0)
 		{
 			xt_read_cell_data(xt, fm_state, cell);
-			xt_read_cell_cmd(xt, fm_state, cell->cmd1, cell->arg1);
-			xt_read_cell_cmd(xt, fm_state, cell->cmd2, cell->arg2);
+			for (uint16_t i = 0; i < ARRAYSIZE(cell->cmd); i++)
+			{
+				xt_read_cell_cmd(xt, fm_state, cell->cmd[i].cmd, cell->cmd[i].arg);
+			}
 		}
 
 		xt_mod_tick(&fm_state->mod_vibrato);

@@ -85,10 +85,11 @@ typedef struct XtCell
 {
 	XtNote note;
 	uint8_t inst;
-	XtCmd cmd1;
-	uint8_t arg1;
-	XtCmd cmd2;
-	uint8_t arg2;
+	struct
+	{
+		XtCmd cmd;
+		uint8_t arg;
+	} cmd[1];
 } XtCell;
 
 // Vertical collection of cells for one channel.

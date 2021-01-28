@@ -169,9 +169,10 @@ void set_demo_meta(void)
 int main(int argc, char **argv)
 {
 	_dos_super(0);
-	_iocs_crtmod(0);
+	int old_crt_mode = _iocs_crtmod(7);
 	_iocs_b_curoff();
 	_iocs_g_clr_on();
+	_iocs_b_putmes(1, 0, 0, 20, "Loading XTracler...");
 
 	if (!video_init())
 	{
@@ -189,6 +190,8 @@ int main(int argc, char **argv)
 	// Set up xt with some test data
 	set_demo_meta();
 	set_demo_instruments();
+
+	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
 
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
@@ -223,6 +226,8 @@ int main(int argc, char **argv)
 
 		// During playback, the scroll position and displayed frame are
 		// commanded by the main Xt object.
+		x68k_pcg_set_bg0_xscroll(0);
+		x68k_pcg_set_bg1_xscroll(0);
 		if (xt.playing)
 		{
 			const uint16_t yscroll = (xt.current_phrase_row - 16) * 8;
@@ -232,16 +237,20 @@ int main(int argc, char **argv)
 		}
 		else
 		{
-			xt_phrase_editor_render(&phrase_editor);
-			const uint16_t yscroll = phrase_editor.yscroll;
-			x68k_pcg_set_bg0_yscroll(yscroll);
-			x68k_pcg_set_bg1_yscroll(yscroll);
+			const uint16_t cam_y = -128 + phrase_editor.row * 8;
+			x68k_pcg_set_bg0_yscroll(cam_y);
+			x68k_pcg_set_bg1_yscroll(cam_y);
 			xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
 			xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
+			xt_phrase_editor_draw_cursor(&phrase_editor, 0, cam_y);
 		}
 		x68k_pcg_finish_sprites();
 	}
 	xt_vbl_shutdown();
+
+	_iocs_crtmod(old_crt_mode);
+	_iocs_b_curon();
+	_iocs_g_clr_on();
 
 	return 0;
 }

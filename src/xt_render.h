@@ -9,11 +9,13 @@ typedef struct XtTrackRenderer
 {
 	// ID of the last phrase that was drawn. Used to diff with the current
 	// phrase, and determine if a repaint is needed.
-	uint16_t last_phrase_num[XT_TOTAL_CHANNEL_COUNT];
+	int16_t last_phrase_num[XT_TOTAL_CHANNEL_COUNT];
 
 	// A channel marked as in need of a repaint. This can be from a mismatch of
 	// the channel phrase number, or a user input (e.g. editing a column)
-	uint16_t channel_dirty[XT_TOTAL_CHANNEL_COUNT];
+	int8_t channel_dirty[XT_TOTAL_CHANNEL_COUNT];
+
+	int16_t row_highlight[2];
 } XtTrackRenderer;
 
 void xt_track_renderer_init(XtTrackRenderer *r);
