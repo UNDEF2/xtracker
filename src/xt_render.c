@@ -68,7 +68,7 @@ static const uint16_t default_palette[] =
 	PAL_RGB8(0x20, 0x00, 0x7F),  // Cursor
 	PAL_RGB8(0x10, 0x00, 0x7F),  // Cursor
 	PAL_RGB8(0x00, 0x00, 0x7F),  // Cursor
-	0, 0, 0, 0, 0, 0, 0, 0,
+	0, 0, 0, 0, 0, 0, 0,
 
 	// Line 6 - line mark front
 	PAL_RGB8(0x00, 0x00, 0x00),
@@ -121,34 +121,28 @@ static void draw_backing(int16_t back_spacing, int16_t front_spacing)
 	static const int16_t nt_width_cells = 512 / 8;
 	volatile uint16_t *nt1 = (volatile uint16_t *)PCG_BG1_NAME;
 
-	static const uint8_t even_pal = 2;
-	static const uint8_t odd_pal = 3;
+	static const uint8_t even_pal = 3;
+	static const uint8_t odd_pal = 2;
 	static const uint8_t back_pal = 4;
 	static const uint8_t front_pal = 6;
 
-	int16_t acc[2] = {back_spacing, front_spacing};
+	int16_t acc[2] = {0, 0};
 
 	for (int y = 0; y < nt_height_cells; y++)
 	{
 		uint8_t pal = 0;
-		if (acc[0] == back_spacing)
+		if (acc[0] <= 0)
 		{
-			acc[0] = 0;
 			pal = back_pal;
+			acc[0] = back_spacing;
 		}
-		else
+		acc[0]--;
+		if (acc[1] <= 0)
 		{
-			acc[0]++;
-		}
-		if (acc[1] == front_spacing)
-		{
-			acc[1] = 1;
 			pal = front_pal;
+			acc[1] = front_spacing;
 		}
-		else
-		{
-			acc[1]++;
-		}
+		acc[1]--;
 
 		if (pal == 0)
 		{

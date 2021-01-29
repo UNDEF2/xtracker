@@ -91,6 +91,37 @@ Tile size (8x8 or 16x16) is influenced by HRES in 0xEB0810
     0 0             256 x 256 dots  512 x 512 dots      8 x 8 dots
     0 1             512 x 512 dots  1024 x 1024 dots    16 x 16 dots
 
+Sample configs from pg 236 of Inside X68000:
+
+        [    Hi-resolution    ] [   Low-resolution    ]
+        512x512 512x256 256x256 512x512 512x256 256x256
+H-Total     $FF     $FF     $FF     $FF     $FF     $25
+H-Disp      $15     $15     $0A     $09     $09     $04
+V-Disp      $28     $28     $28     $10     $10     $10
+Flags       $15     $11     $10     $05     $01     $00
+BG planes     1       1       2       1       1       2
+
+Notes from pg234 of Inside X68000:
+
+0x0 H-total:
+
+* Bit 0 (LSB) should be '1'.
+
+H-total should be the same value as the CRTC R00 (Htotal) in low-resolution
+mode (256 x 256), otherwise it should be set to $FF. As with CRTC R00, make
+sure that the value set for this register is an odd number.
+
+0x02 H-disp:
+
+Set by taking the value of R02 from CRTC and adding four.
+
+0x04 V-disp:
+
+Set by taking the value of R06 from CRTC.
+
+Also, replicate CRTC value R20's lower 8 bits in the mode register at $EB0810.
+
+
 Background nametables =========================================================
 
 Layout data for the Background planes start at 0xEBC000 and 0xEBE000 for BG0 and
@@ -103,34 +134,7 @@ f--- ---- ---- ---- y flip
 ---- ba98 ---- ---- color
 ---- ---- 7654 4310 pattern #
 
-Tile indexing =================================================================
-
-In 16x16 tile mode (hres on) tiles are "as you expect".
-16x16 tiles are indexed within PCG memory like so:
-
-00 -> 01 -> 02 -> 03 -> 04 ...
-
-16 -> 17 -> 18 -> 19 -> 20 ...
-
-In 8x8 tile mode (hres off) tiles are in a zig-zag order. They still follow
-addressing rules of the 16x16 mode in a sense.
-8x8 tiles are indexed within PCG memory like so:
-
-00  02  03  05  08
-| / | / | / | / |
-01  03  05  07  ...
-
-64  66  68
-| / | / |
-65  67  ...
-
 */
-
-typedef enum X68kPcgRes
-{
-	PCG_RES_LOW = 0,
-	PCG_RES_HIGH = 1,
-} X68kPcgRes;
 
 // Attributes to specify sprite and backdrop tiles
 #define PCG_ATTR(_yf_,_xf_,_c_,_p_) ((((_yf_)&1)<<15) | (((_xf_)&1)<<14) |\
@@ -160,8 +164,21 @@ PRW     Layering
 
 // Setup =====================================================================
 
-// Set up with some sane defaults.
-void x68k_pcg_init_default(void);
+typedef struct X68kPcgConfig
+{
+	// H-total should be the same value as the CRTC R00 (Htotal) in low-res
+	// mode (256 x 256), otherwise it should be set to $FF. As with CRTC R00,
+	// make sure that the value set for this register is an odd number.
+	uint16_t htotal;  // 0xEB080A
+	// H-disp is set by taking the value of R02 from CRTC and adding four.
+	uint16_t hdisp;  // 0xEB080C
+	// V-disp is set by taking the value of R06 from CRTC.
+	uint16_t vdisp;  // 0xEB080E
+	// Flags are set by taking the lower 8 bits from CRTC R20.
+	uint16_t flags;  // 0xEB0810
+} X68kPcgConfig;
+
+void x68k_pcg_init(const X68kPcgConfig *c);
 
 // Turn off the display for faster transfer
 void x68k_pcg_set_disp_en(uint8_t en);
@@ -173,40 +190,6 @@ void x68k_pcg_set_bg0_txsel(uint8_t t);
 // Enable or disable BG layer display
 void x68k_pcg_set_bg1_enable(uint8_t en);
 void x68k_pcg_set_bg0_enable(uint8_t en);
-
-// Configure display timings; should correspond with CRTC.
-
-// t: 0 - 255
-static inline void x68k_pcg_set_htotal(uint8_t t)
-{
-	volatile uint16_t *r = (volatile uint16_t *)PCG_HTOTAL;
-	*r = t;
-}
-
-// t: 0 - 64
-static inline void x68k_pcg_set_hdisp(uint8_t t)
-{
-	volatile uint16_t *r = (volatile uint16_t *)PCG_HDISP;
-	*r = t;
-}
-
-// t : 0 - 255
-static inline void x68k_pcg_set_vdisp(uint8_t t)
-{
-	volatile uint16_t *r = (volatile uint16_t *)PCG_VDISP;
-	*r = t;
-}
-
-
-void x68k_pcg_set_ctrl(uint16_t ctrl);
-
-// Set low/high frequency.
-// lh: 1 = high; 0 = low
-void x68k_pcg_set_lh(uint8_t lh);
-
-// Vertical and horizontal resolution; seems related to sprite and tile size
-void x68k_pcg_set_vres(uint8_t v);
-void x68k_pcg_set_hres(uint8_t h);
 
 // Data manipulation =========================================================
 

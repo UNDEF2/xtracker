@@ -23,17 +23,60 @@ copies to the actual hardware registers, call x68k_vidcon_commit_regs().
 #define PAL_RGB4(r, g, b) ( (((r << 1) & 0x1F) << 6) | (((g << 1) & 0x1F) << 11) | (((b << 1) & 0x1F) << 1) )
 #define PAL_RGB8(r, g, b) ( (((r >> 3) & 0x1F) << 6) | (((g >> 3) & 0x1F) << 11) | (((b >> 3) & 0x1F) << 1) )
 
-// Set up a sane default configuration
-// 512x512, 16-color
-// Sprites > Text > GP0 > GP1 > GP2 > GP3
-// Enable all graphics layers.
-// The other wacky shit is not enabled.
-void x68k_vidcon_init_default(void);
+/*
 
-// Update hardware registers from shadow copies
-void x68k_vidcon_commit_regs(void);
+Example config:
 
-// Palette Writes ============================================================
+screen = 0x0000;  // 512x512, 16-color
+prio = 0x12E4;  // Text > PCG > (GP0 > GP1 > GP2 > GP3)
+flags = 0x007F;  // Enable all layers.
+
+*/
+
+typedef struct X68kVidconConfig
+{
+	// R0: Screen
+	// Bits 0-1: color depth (0 = 16, 1 = 256, 2 = invalid, 3 = 65536)
+	// Bit 2: "Real screen mode" 0 = 512x512, 1 = 1024x1024
+	// This should match CRTC R20 bits 8-10 shifted down to bits 0-2.
+	uint16_t screen;
+
+	// R1: Priotity
+	// Ordering between layer groups, and between the graphics planes within
+	// the graphics plane group.
+	// 0 = topmost; 3 = bottom-most.
+	// 15 -------------- 0
+	// ..PP .... .... .... PCG priority 
+	// .... TT.. .... .... Text priority
+	// .... ..GG .... .... GP priority
+	// .... .... 33.. ....  --> GP3 priority
+	// .... .... ..22 ....  --> GP2 priority
+	// .... .... .... 11..  --> GP1 priority
+	// .... .... .... ..00  --> GP0 priority
+	uint16_t prio;
+
+	// R2: Flags
+	// 15 -------------- 0
+	// V... .... .... .... Video cut / don't show image even when superimposing
+	// .A.. .... .... .... Ah: translucent text palette 0 regardless of exon ?
+	// ..v. .... .... .... Vht: Video image (used in color image unit)
+	// ...E .... .... .... Exon: Enable special priority / translucent mode
+	// .... H... .... .... Hp: special priority (0) or translucent (1) select
+	// .... .B.. .... .... Bp: Sharp reserved (0) or something else (1) ???
+	// .... ..G. .... .... GG: Set translucent: graphics screen
+	// .... ...T .... .... GT: Set translucent: text/sprite screen
+	// .... .... b... .... border: enable border color display
+	// .... .... .P.. .... Enable PCG display
+	// .... .... ..t. .... Enable Text display
+	// .... .... ...g .... Enable GP display
+	// .... .... .... 3... GP3 enable
+	// .... .... .... .2.. GP2 enable
+	// .... .... .... ..1. GP1 enable
+	// .... .... .... ...0 GP0 enable
+	uint16_t flags;
+} X68kVidconConfig;
+
+void x68k_vidcon_init(const X68kVidconConfig *c);
 
 // Graphics plane palette entries
 static inline void x68k_vidcon_set_gp_color(uint8_t index, uint16_t val)
@@ -58,70 +101,5 @@ static inline void x68k_vidcon_set_pcg_color(uint8_t index, uint16_t val)
 	p += index;
 	*p = val;
 }
-
-// R0: screen ================================================================
-
-// Set screen size between 512px (0) and 1024px(1)
-void x68k_vidcon_set_screen_size(uint8_t screen_size);
-
-// Set color mode between 16(0), 256(1), and 65536(3)
-void x68k_vidcon_set_color_mode(uint8_t color_mode);
-
-// R1: priorities ============================================================
-
-// Set priorities of the graphics layers, where 0 is the topmost
-void x68k_vidcon_set_prio_pcg(uint8_t priority);
-void x68k_vidcon_set_prio_text(uint8_t priority);
-void x68k_vidcon_set_prio_graphics(uint8_t priority);
-
-// Set priorities within GVRAM-based layers
-void x68k_vidcon_set_prio_gp0(uint8_t priority);
-void x68k_vidcon_set_prio_gp1(uint8_t priority);
-void x68k_vidcon_set_prio_gp2(uint8_t priority);
-void x68k_vidcon_set_prio_gp3(uint8_t priority);
-
-// R2: misc. settings, enable masks ==========================================
-
-// Do not display image even when superimposing
-void x68k_vidcon_set_video_cut(uint8_t cut_en);
-
-// Set translucent: text palette 0 (force translucent regardless of exon, etc)
-void x68k_vidcon_set_ah(uint8_t ah_en);
-
-// Set translucent: video image (used in color image unit)
-void x68k_vidcon_set_vht(uint8_t vht_en);
-
-// Enable special priority / translucent mode
-void x68k_vidcon_set_exon(uint8_t exon_en);
-
-// Special priority (0) or translucent mode (1) selection
-void x68k_vidcon_set_hp(uint8_t hp);
-
-// Sharp reserved(0) or something else(1)
-void x68k_vidcon_set_bp(uint8_t bp);
-
-// Set translucent: graphic screen
-void x68k_vidcon_set_gg(uint8_t gg_en);
-
-// Set translucent: text/sprite screen
-void x68k_vidcon_set_gt(uint8_t gt_en);
-
-// Enable border color display
-void x68k_vidcon_border_enable(uint8_t en);
-
-// Enable sprite display
-void x68k_vidcon_pcg_enable(uint8_t en);
-
-// Enable text plane display
-void x68k_vidcon_text_enable(uint8_t en);
-
-// Enable graphic plane display
-void x68k_vidcon_graphic_enable(uint8_t en);
-
-// Enable particular graphic layers
-void x68k_vidcon_graphic_gp0_enable(uint8_t en);
-void x68k_vidcon_graphic_gp1_enable(uint8_t en);
-void x68k_vidcon_graphic_gp2_enable(uint8_t en);
-void x68k_vidcon_graphic_gp3_enable(uint8_t en);
 
 #endif // X68K_VIDCON_H

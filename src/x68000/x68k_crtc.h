@@ -3,13 +3,7 @@
 // TODO: Page 224 of Inside has a good example of the raster copy
 
 X68000 CRT Controller Helper Functions (crtc)
-c. Michael Moffitt 2017
-
-Provides some helper functions for configuring the CRT controller. Most writes
-are not shadow copied as the registers represent a single word or less of data.
-
-R20, R21, and R22 are shadowed, but unlike the vidcon helpers these are updated
-immediately and consequently do not require calls to a commit function.
+c. Michael Moffitt 2021
 
 x68k_crtc_init_default does not touch display timings, and only resets scroll for
 all layers. R20 and R21 are set up with what I would hope are sane defaults,
@@ -17,49 +11,94 @@ but this only affects the shadow copies, which will only be committed if those
 registers are touched.
 
 */
-#ifndef _68K_CRTC_H
-#define _68K_CRTC_H
+#ifndef _X68K_CRTC_H
+#define _X68K_CRTC_H
 
 #include <stdint.h>
 
 // VRAM memory mapping
 #define GVRAM_BASE ((uint8_t *)0xC00000)
 #define TVRAM_BASE ((uint8_t *)0xE00000)
+#define CRTC_BASE ((uint16_t *)0xE80000)
 
-// Set up some sane defaults
-// TODO: Verify on hardware
-void x68k_crtc_init_default(void);
+// Struct representing CRTC configuration registers.
 
-// R00 - R08: Display timings ================================================
+/*
 
-// R00: Total horizontal period
-void x68k_crtc_set_htotal(uint16_t v);
+Calculations for R00 - R07, translated from InsideX68000:
 
-// R01: HSync end position
-void x68k_crtc_set_hsync_end(uint16_t v);
+R00 = ((Hsync period * H total dots) / (H active dots * 8)) - 1
+R01 = ((Hsync pulse * H total dots) / (H active dots * 8)) - 1
+R02 = (((Hsync pulse + H back porch) * (H total dots)) / (H active dots)) - 5
+R03 = (((Hsync period + H front porch) * (H total dots)) / (H active dots)) - 5
+R04 = (Vsync period / Hsync period) - 1
+R05 = (Vsync pulse / Hsync period) - 1
+R06 = ((Vsync pulse + V back porch) / Hsync period) - 1
+R07 = ((Vsync period - V front porch) / Hysnc period) - 1
 
-// R02: H Display start
-void x68k_crtc_set_hdisp_start(uint16_t v);
+Sample config table from Inside X68000:
 
-// R03: H Display end
-void x68k_crtc_set_hdisp_end(uint16_t v);
+    [       High-resolution       ] [   Low resolution    ]
+    768x512 512x512 512x256 256x256 512x512 512x256 256x256
+R00     $89     $5B     $5B     $2D     $4B     $4B     $25
+R01     $0E     $09     $09     $04     $03     $03     $01
+R02     $1C     $11     $11     $06     $05     $05     $00
+R03     $7C     $51     $51     $26     $45     $45     $20
+R04    $237    $237    $237    $237    $103    $103    $103
+R05     $05     $05     $05     $05     $02     $02     $02
+R06     $28     $28     $28     $28     $10     $10     $10
+R07    $228    $228    $228    $228    $100    $100    $100
+R08     $1B     $1B     $1B     $1B     $2C     $2C     $24
 
-// R04: Total vertical period
-void x68k_crtc_set_vtotal(uint16_t v);
+*/
 
-// R05: VSync end position
-void x68k_crtc_set_vsync_end(uint16_t v);
+typedef struct X68kCrtcConfig
+{
+	// R00 - R08 at 0xE80000
+	uint16_t htotal;        // 1 bit = 8px
+	uint16_t hsync_length;
+	uint16_t hdisp_start;
+	uint16_t hdisp_end;
+	uint16_t vtotal;        // 1 bit = 1 line
+	uint16_t vsync_length;  // "
+	uint16_t vdisp_start;   // "
+	uint16_t vdisp_end;     // "
+	uint16_t ext_h_adjust;
 
-// R06: V Display start
-void x68k_crtc_set_vdisp_start(uint16_t v);
+	// R09 - R19 are not represented here (scroll registers).
 
-// R07: V Display end
-void x68k_crtc_set_vdisp_end(uint16_t v);
+	// R20 at 0xE80028. Bits 8-10 (color, plane size) should match the video
+	// controller's top 3 bits (0xE82400).
+	uint16_t flags;
+	/*
+	15                0
+	.... .zcc ...f vvhh
+	      ||     | | \__ Horizontal disp:  00 = 256 dots
+	      ||     | |                       01 = 512 dots
+	      ||     | |                       10 = invalid config?
+	      ||     | |                       11 = 768 dots (50MHz dotclock?) no good for PCG
+	      ||     | |
+	      ||     |  \___ Vertical disp:    00 = 256 dots
+	      ||     |                         01 = 512 dots
+	      ||     |                         10 = invalid config
+	      ||     |                         11 = invalid config
+	      ||     |
+	      ||      \_____ Frequency:        0 = 15.98KHz
+	      ||                               1 = 31.5KHz (is this the dot clock?)
+	      ||
+	      |\____________ Color depth:      00 = 16 colors
+	      |                                01 = 256 colors
+	      |                                10 = invalid config
+	      |                                11 = 65536 colors
+	      |
+	       \____________ Plane size:       0 = 512  dots
+	                                       1 = 1024 dots
+	*/
+} X68kCrtcConfig;
 
-// R08 - R09: Misc ===========================================================
-
-// R08: External sync horizontal phase fine adjustment
-void x68k_crtc_set_horiz_adj(uint16_t v);
+// Apply an X68kCrtcConfig the hardware registers.
+// Scroll positions will be initialized to zero.
+void x68k_crtc_init(const X68kCrtcConfig *c);
 
 // R09: Raster number for raster interrupt
 void x68k_crtc_set_raster_interrupt(uint16_t v);
@@ -96,69 +135,9 @@ void x68k_crtc_set_gp3_xscroll(uint16_t v);
 // R19: Graphic layer 3 Y scroll
 void x68k_crtc_set_gp3_yscroll(uint16_t v);
 
-// R20 - R23: Misc 2 =========================================================
-
-// Set T-VRAM usage to display(0) or buffer(1)
-void x68k_crtc_set_tvram_usage(uint8_t v);
-
-// Set G-VRAM usage to display(0) or buffer(1)
-void x68k_crtc_set_gvram_usage(uint8_t v);
-
-// Set screen size to 512px(0) or 1024px(1)
-void x68k_crtc_set_screen_size(uint8_t v);
-
-// Set color mode between 16(0), 256(1), and 65536(3)
-void x68k_crtc_set_color_mode(uint8_t v);
-
-// Set horizontal deflection frequency between 15.98KHz(0) and 31.50KHz(1)
-void x68k_crtc_set_horizontal_freq(uint8_t v);
-
-// Set vertical display size between 256(0), 512(1), or 1024(2) if Hf=31.5Khz
-void x68k_crtc_set_display_height(uint8_t v);
-
-// Set horizontal display size between 256(0), 512(1), 768(2), or 50MHz(3)
-void x68k_crtc_set_display_width(uint8_t v);
-
-// Text screen access mask
-void x68k_crtc_set_text_screen_access_mask(uint8_t v);
-
-// Text screen simultaneous access
-void x68k_crtc_set_text_screen_access(uint8_t v);
-
-// Text screen simultaneous access plane selection AP3
-void x68k_crtc_set_text_screen_access_ap3(uint8_t v);
-
-// Text screen simultaneous access plane selection AP2
-void x68k_crtc_set_text_screen_access_ap2(uint8_t v);
-
-// Text screen simultaneous access plane selection AP1
-void x68k_crtc_set_text_screen_access_ap1(uint8_t v);
-
-// Text screen simultaneous access plane selection AP0
-void x68k_crtc_set_text_screen_access_ap0(uint8_t v);
-
-// Text layer raster copy target plane / gvram clear target page
-void x68k_crtc_set_cp3(uint8_t v);
-
-// Text layer raster copy target plane / gvram clear target page
-void x68k_crtc_set_cp2(uint8_t v);
-
-// Text layer raster copy target plane / gvram clear target page
-void x68k_crtc_set_cp1(uint8_t v);
-
-// Text layer raster copy target plane / gvram clear target page
-void x68k_crtc_set_cp0(uint8_t v);
-
-// Set source raster
-void x68k_crtc_set_copy_source(uint8_t v);
-
-// Set destination raster
-void x68k_crtc_set_copy_destination(uint8_t v);
-
-// Set text simultaneous mask pattern
-void x68k_crtc_set_text_mask_pattern(uint16_t v);
+// TODO: Raster copy stuff (R21-R23)
 
 // CRTC control port
 void x68k_crtc_set_control(uint8_t v);
 
-#endif // CRTC_H
+#endif // XCRTC_H

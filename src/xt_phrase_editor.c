@@ -432,10 +432,9 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 	}
 }
 
-void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
-                                  int16_t cam_x, int16_t cam_y)
+static void draw_cursor_with_sprite(const XtPhraseEditor *p,
+                                    int16_t cam_x, int16_t cam_y)
 {
-	if (p->state != EDITOR_NORMAL) return;
 	const uint8_t prio = 2;
 	const uint8_t cursor_pal = 1;
 	const uint8_t cursor_dark_pal = 5;
@@ -475,4 +474,11 @@ void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
 			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
 			break;
 	}
+}
+
+void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
+                                  int16_t cam_x, int16_t cam_y)
+{
+	if (p->state != EDITOR_NORMAL) return;
+	draw_cursor_with_sprite(p, cam_x, cam_y);
 }

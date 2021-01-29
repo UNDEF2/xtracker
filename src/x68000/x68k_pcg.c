@@ -1,8 +1,10 @@
 #include "x68000/x68k_pcg.h"
 
-static uint16_t x68k_pcg_mode, x68k_pcg_ctrl;
-static volatile uint16_t *x68k_pcg_mode_r = (volatile uint16_t *)PCG_MODE;
+static uint16_t x68k_pcg_ctrl;
 static volatile uint16_t *x68k_pcg_ctrl_r = (volatile uint16_t *)PCG_BG_CTRL;
+
+static uint8_t s_spr_next = 0;
+static uint8_t s_spr_count_prev = 0;
 
 /*
 Control:    0xEB0808
@@ -24,11 +26,15 @@ Mode:       0xEB0810
 
 */
 
-// Set up with some sane defaults.
-void x68k_pcg_init_default(void)
+void x68k_pcg_init(const X68kPcgConfig *c)
 {
-	x68k_pcg_mode = 0;
-	x68k_pcg_ctrl = 0;
+	volatile uint16_t *pcg_reg = (volatile uint16_t *)0xEB080A;
+	pcg_reg[0] = c->htotal;
+	pcg_reg[1] = c->hdisp;
+	pcg_reg[2] = c->vdisp;
+	pcg_reg[3] = c->flags;
+
+	x68k_pcg_set_disp_en(0);
 	x68k_pcg_set_bg1_txsel(1);
 	x68k_pcg_set_bg0_txsel(0);
 	x68k_pcg_set_bg0_xscroll(0);
@@ -37,9 +43,6 @@ void x68k_pcg_init_default(void)
 	x68k_pcg_set_bg1_yscroll(0);
 	x68k_pcg_set_bg0_enable(1);
 	x68k_pcg_set_bg1_enable(1);
-	x68k_pcg_set_lh(1);
-	x68k_pcg_set_vres(1);
-	x68k_pcg_set_hres(1);
 	x68k_pcg_clear_sprites();
 	x68k_pcg_set_disp_en(1);
 }
@@ -81,49 +84,20 @@ void x68k_pcg_set_bg0_enable(uint8_t en)
 	*x68k_pcg_ctrl_r = x68k_pcg_ctrl;
 }
 
-void x68k_pcg_set_ctrl(uint16_t ctrl)
-{
-	x68k_pcg_mode = ctrl;
-	*x68k_pcg_mode_r = ctrl;
-}
-
-void x68k_pcg_set_lh(uint8_t lh)
-{
-	x68k_pcg_mode &= ~(0x0010);
-	x68k_pcg_mode |= (lh ? 0x10 : 0x00);
-	*x68k_pcg_mode_r = x68k_pcg_mode;
-}
-
-void x68k_pcg_set_vres(uint8_t v)
-{
-	x68k_pcg_mode &= ~(0x0000C);
-	x68k_pcg_mode |= ((v & 0x03) << 2);
-	*x68k_pcg_mode_r = x68k_pcg_mode;
-}
-void x68k_pcg_set_hres(uint8_t h)
-{
-	x68k_pcg_mode &= ~(0x00003);
-	x68k_pcg_mode |= (h & 0x03);
-	*x68k_pcg_mode_r = x68k_pcg_mode;
-}
-
-static uint8_t spr_next = 0;
-static uint8_t spr_count_prev = 0;
-
 void x68k_pcg_add_sprite(int16_t x, int16_t y, uint16_t attr, uint16_t prio)
 {
-	while (spr_count_prev > 0)
+	while (s_spr_count_prev > 0)
 	{
-		spr_count_prev--;
-		volatile X68kPcgSprite *spr = x68k_pcg_get_sprite(spr_count_prev);
+		s_spr_count_prev--;
+		volatile X68kPcgSprite *spr = x68k_pcg_get_sprite(s_spr_count_prev);
 		spr->x = 0;
 	}
-	if (spr_next >= 128) return;
-	x68k_pcg_set_sprite(spr_next++, x, y, attr, prio);
+	if (s_spr_next >= 128) return;
+	x68k_pcg_set_sprite(s_spr_next++, x, y, attr, prio);
 }
 
 void x68k_pcg_finish_sprites(void)
 {
-	spr_count_prev = spr_next;
-	spr_next = 0;
+	s_spr_count_prev = s_spr_next;
+	s_spr_next = 0;
 }

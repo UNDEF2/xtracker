@@ -23,12 +23,56 @@ static XtTrackRenderer renderer;
 static XtKeys keys;
 static XtPhraseEditor phrase_editor;
 
+#define CRT_FLAGS 0x0001
+
+typedef struct DisplayMode
+{
+	X68kCrtcConfig crtc;
+	X68kPcgConfig pcg;
+	X68kVidconConfig vidcon;
+} DisplayMode;
+
+// This is a pretty messed up 512x256 active picture mode that abuses the HRES
+// bit of the PCG to get 8x8 tiles when in 512px width, but sprites end up
+// broken as the right side of the sprite buffer is not cleared.
+static const DisplayMode mode_512_256 =
+{
+	{
+		0x004D, 0x0005, 0x000A, 0x0049,
+		0x0103, 0x0002, 0x000F, 0x00FF,
+		0x20, CRT_FLAGS
+	},
+	{
+		0x00FF, 0x000E, 0x001D, 0x0000
+	},
+	{
+		(CRT_FLAGS >> 8), 0x12E4, 0x007F
+	}
+};
+
+static const DisplayMode mode_448 =
+{
+	{
+		0x004B, 0x0003, 0x000A, 0x0042,
+		0x0106, 0x0002, 0x0014, 0x0103,
+		0x20, CRT_FLAGS
+	},
+	{
+		0x00FF, 0x000E, 0x0014, 0x0000
+	},
+	{
+		(CRT_FLAGS >> 8), 0x12E4, 0x007F
+	}
+};
+
 int video_init(void)
 {
-	x68k_crtc_init_default();
-	x68k_vidcon_init_default();
-	x68k_vidcon_commit_regs();
-	x68k_pcg_init_default();
+	const DisplayMode *mode = &mode_448;
+	x68k_crtc_init(&mode->crtc);
+	x68k_pcg_init(&mode->pcg);
+	x68k_vidcon_init(&mode->vidcon);
+
+	xt_vbl_init();
 
 	// Clear PCG nametables and data
 	x68k_vbl_wait_for_vblank();
@@ -60,9 +104,6 @@ int video_init(void)
 	x68k_pcg_set_bg1_txsel(1);
 	x68k_pcg_set_bg0_enable(1);
 	x68k_pcg_set_bg1_enable(1);
-	x68k_pcg_set_lh(0);
-	x68k_pcg_set_vres(0);  // Disable the line doubler.
-	x68k_pcg_set_hres(0);  // We want 8x8 tiles.
 
 	x68k_pcg_set_bg0_xscroll(0);
 	x68k_pcg_set_bg1_xscroll(-4);
@@ -169,10 +210,13 @@ void set_demo_meta(void)
 int main(int argc, char **argv)
 {
 	_dos_super(0);
-	int old_crt_mode = _iocs_crtmod(7);
+//	int old_crt_mode = _iocs_crtmod(7);
 	_iocs_b_curoff();
 	_iocs_g_clr_on();
-	_iocs_b_putmes(1, 0, 0, 20, "Loading XTracler...");
+	_iocs_b_putmes(1, 0, 0, 20, "Loading XTracker...");
+
+	_iocs_bgtextcl(0, 0x20);
+	_iocs_bgtextcl(1, 0x20);
 
 	if (!video_init())
 	{
@@ -185,23 +229,20 @@ int main(int argc, char **argv)
 	xt_keys_init(&keys);
 	xt_phrase_editor_init(&phrase_editor);
 
-	xt_vbl_init();
-
 	// Set up xt with some test data
 	set_demo_meta();
 	set_demo_instruments();
 
 	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
 
+	for (int i = 0; i < 15; i++)
+	{
+		_iocs_b_putmes(1, 0, i, 64, "                                               ");
+	}
+
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
 	{
-		const struct iocs_txfillptr fill =
-		{
-			8, 8, 16, 16,
-			0x5555,
-		};
-		_iocs_txfill(&fill);
 		if (xt_keys_pressed(&keys, XT_KEY_CR))
 		{
 			// Take the playback position from the editor.
@@ -248,7 +289,7 @@ int main(int argc, char **argv)
 	}
 	xt_vbl_shutdown();
 
-	_iocs_crtmod(old_crt_mode);
+//	_iocs_crtmod(old_crt_mode);
 	_iocs_b_curon();
 	_iocs_g_clr_on();
 
