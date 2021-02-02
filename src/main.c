@@ -65,14 +65,24 @@ static const DisplayMode mode_448 =
 	}
 };
 
+static const X68kPcgConfig pcg_clear_hack =
+{
+	0x00FF, 0x000E, 0x0014, 0x0001
+};
+
 int video_init(void)
 {
 	const DisplayMode *mode = &mode_448;
 	x68k_crtc_init(&mode->crtc);
-	x68k_pcg_init(&mode->pcg);
 	x68k_vidcon_init(&mode->vidcon);
-
 	xt_vbl_init();
+	// Init PCG in "wide" mode for one frame to clear the line buffers.;
+	x68k_pcg_init(&pcg_clear_hack);
+	x68k_vbl_wait_for_vblank();
+
+
+	x68k_pcg_init(&mode->pcg);
+
 
 	// Clear PCG nametables and data
 	x68k_vbl_wait_for_vblank();
@@ -106,10 +116,12 @@ int video_init(void)
 	x68k_pcg_set_bg1_enable(1);
 
 	x68k_pcg_set_bg0_xscroll(0);
-	x68k_pcg_set_bg1_xscroll(-4);
+	x68k_pcg_set_bg1_xscroll(0);
 
 	x68k_pcg_set_bg0_yscroll(0);
 	x68k_pcg_set_bg1_yscroll(0);
+
+	x68k_vbl_wait_for_vblank();
 
 	x68k_pcg_set_disp_en(1);
 	return 1;
@@ -197,7 +209,7 @@ void set_demo_meta(void)
 		}
 	}
 
-	xt.track.num_frames = 32;
+	xt.track.num_frames = 64;
 	xt.track.num_instruments = 1;
 
 	xt.track.ticks_per_row = 6;
@@ -233,59 +245,58 @@ int main(int argc, char **argv)
 	set_demo_meta();
 	set_demo_instruments();
 
-	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
-
+	// Surely we can clear the screen more effectively than this
 	for (int i = 0; i < 15; i++)
 	{
 		_iocs_b_putmes(1, 0, i, 64, "                                               ");
 	}
 
+	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
+
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
 	{
-		if (xt_keys_pressed(&keys, XT_KEY_CR))
-		{
-			// Take the playback position from the editor.
-			if (!xt.playing)
-			{
-				// Hold shift to play the same phrase repeatedly.
-				xt_start_playing(&xt, phrase_editor.frame, xt_keys_held(&keys, XT_KEY_SHIFT));
-			}
-			else
-			{
-				xt_stop_playing(&xt);
-			}
-		}
-
-		// TODO: These should be interrupt-driven using the OPM's timer.
-		xt_tick(&xt);
-		xt_phrase_editor_tick(&phrase_editor, &xt.track, &keys);
-		xt_update_opm_registers(&xt);
-
-		xt_vbl_wait(0);
 		xt_keys_update(&keys);
 
-		// During playback, the scroll position and displayed frame are
-		// commanded by the main Xt object.
-		x68k_pcg_set_bg0_xscroll(0);
-		x68k_pcg_set_bg1_xscroll(0);
-		if (xt.playing)
+		switch (xt.focus)
 		{
-			const uint16_t yscroll = (xt.current_phrase_row - 16) * 8;
-			x68k_pcg_set_bg0_yscroll(yscroll);
-			x68k_pcg_set_bg1_yscroll(yscroll);
-			xt_track_renderer_tick(&renderer, &xt, xt.current_frame);
+			default:
+				break;
+			case XT_UI_FOCUS_PATTERN:
+				// TODO: tick the playback engine and register updates based
+				// on the OPM timer.
+				xt_tick(&xt);
+				xt_phrase_editor_tick(&phrase_editor, &xt.track, &keys);
+				if (xt.playing)
+				{
+					if (xt_keys_pressed(&keys, XT_KEY_CR))
+					{
+						xt_stop_playing(&xt);
+						xt.playing = 0;
+					}
+					const int16_t yscroll = (xt.current_phrase_row - 16) * 8;
+					xt_track_renderer_set_camera(&renderer, xt_phrase_editor_get_cam_x(&phrase_editor), yscroll);
+					xt_track_renderer_tick(&renderer, &xt, xt.current_frame);
+				}
+				else
+				{
+					if (xt_keys_pressed(&keys, XT_KEY_CR))
+					{
+						// Playback position is taken from the editor.
+						xt_start_playing(&xt, phrase_editor.frame,
+						                 xt_keys_held(&keys, XT_KEY_SHIFT));
+						xt.playing = 1;
+					}
+					xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
+					xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
+					xt_phrase_editor_draw_cursor(&phrase_editor);
+				}
+				xt_update_opm_registers(&xt);
+				break;
 		}
-		else
-		{
-			const uint16_t cam_y = -128 + phrase_editor.row * 8;
-			x68k_pcg_set_bg0_yscroll(cam_y);
-			x68k_pcg_set_bg1_yscroll(cam_y);
-			xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
-			xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
-			xt_phrase_editor_draw_cursor(&phrase_editor, 0, cam_y);
-		}
+
 		x68k_pcg_finish_sprites();
+		xt_vbl_wait(0);
 	}
 	xt_vbl_shutdown();
 

@@ -38,8 +38,15 @@ typedef struct XtPhraseEditor
 	int16_t step_size;  // Rows to go down after having entered a note.
 
 	int8_t channel_dirty[XT_TOTAL_CHANNEL_COUNT];
+	// TODO: Need to keep a mapping of which channels should be painted where
+	//       in order to support greater scrolling.
 	// TODO: Clipboard buffer, and all that...
 
+	// Left-most column index on-screen. This is "pushed" when the cursor is
+	// >= 5 columns away.
+	int16_t cam_column;
+
+	int16_t base_cursor_line_drawn;
 } XtPhraseEditor;
 
 void xt_phrase_editor_init(XtPhraseEditor *p);
@@ -49,8 +56,9 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k);
 // Mark channel(s) as dirty in the XtTrackRenderer
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
 
-// Draw the cursor, offset by the current "camera" position.
-void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
-                                  int16_t cam_x, int16_t cam_y);
+void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p);
+
+int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
+int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);
 
 #endif  // _XT_PHRASE_EDITOR_H

@@ -14,8 +14,20 @@ void xt_phrase_editor_init(XtPhraseEditor *p)
 	p->state = EDITOR_NORMAL;
 }
 
+int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p)
+{
+	return XT_RENDER_CELL_WIDTH_TILES * p->cam_column * XT_RENDER_CELL_PIXELS;
+}
+
+int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p)
+{
+	return -128 + (p->row * XT_RENDER_CELL_PIXELS);
+}
+
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
 {
+	xt_track_renderer_set_camera(r, xt_phrase_editor_get_cam_x(p),
+	                             xt_phrase_editor_get_cam_y(p));
 	for (int i = 0; i < ARRAYSIZE(p->channel_dirty); i++)
 	{
 		if (p->channel_dirty[i])
@@ -89,10 +101,25 @@ static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
 	}
 }
 
+// Let the horizontal column get "pushed" by the by the cursor.
+static void cursor_update_cam_column(XtPhraseEditor *p)
+{
+	const int16_t right_margin = (XT_RENDER_VISIBLE_WIDTH_TILES /
+	                             XT_RENDER_CELL_WIDTH_TILES) - 1;
+	if (p->column < p->cam_column)
+	{
+		p->cam_column = p->column;
+	}
+	else if (p->column > p->cam_column + right_margin)
+	{
+		p->cam_column = p->column - right_margin;
+	}
+}
+
 static inline uint16_t get_x_for_column(uint16_t column,
                                         XtEditorCursorSubPos sub_pos)
 {
-	const uint16_t base = 8 * 8 * column;
+	const uint16_t base = XT_RENDER_CELL_WIDTH_TILES * XT_RENDER_CELL_PIXELS * column;
 	switch (sub_pos)
 	{
 		default:
@@ -343,14 +370,14 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 		{
 			for (uint16_t i = 0; i < ROLL_SCROLL_MAGNITUDE; i++)
 			{
-				if (xt_keys_pressed(k, XT_KEY_UP)) cursor_up(p, t);
+				cursor_up(p, t);
 			}
 		}
 		if (xt_keys_pressed(k, XT_KEY_R_DOWN))
 		{
 			for (uint16_t i = 0; i < ROLL_SCROLL_MAGNITUDE; i++)
 			{
-				if (xt_keys_pressed(k, XT_KEY_UP)) cursor_down(p, t);
+				cursor_down(p, t);
 			}
 		}
 	
@@ -429,56 +456,74 @@ void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k)
 				}
 				break;
 		}
+
+		cursor_update_cam_column(p);
+
+		volatile uint16_t *nt1 = (volatile uint16_t *)PCG_BG1_NAME;
+		const uint8_t hl_pal = 1;
+		if (!p->base_cursor_line_drawn)
+		{
+			for (int16_t i = 3; i < 512 / 8; i++)
+			{
+				nt1[i] = PCG_ATTR(0, 0, hl_pal, 0x80);
+			}
+			p->base_cursor_line_drawn = 1;
+		}
 	}
 }
 
-static void draw_cursor_with_sprite(const XtPhraseEditor *p,
-                                    int16_t cam_x, int16_t cam_y)
+void draw_cursor_with_nt1(const XtPhraseEditor *p)
 {
-	const uint8_t prio = 2;
-	const uint8_t cursor_pal = 1;
-	const uint8_t cursor_dark_pal = 5;
-	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - cam_x;
-	const int16_t draw_y = (p->row * 8) - cam_y;
+	volatile uint16_t *nt1 = (volatile uint16_t *)PCG_BG1_NAME;
+	const uint8_t hl_pal = 1;
 
-	const uint16_t attr = PCG_ATTR(0, 0, cursor_pal, 0x09);
-	const uint16_t attr_dark = PCG_ATTR(0, 0, cursor_dark_pal, 0x09);
+	int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
+	const int16_t draw_y = (p->row * XT_RENDER_CELL_PIXELS) - xt_phrase_editor_get_cam_y(p);
 
 	switch (p->sub_pos)
 	{
 		default:
 			break;
 		case CURSOR_SUBPOS_NOTE:
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
-			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr+1, prio);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
-			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark, prio);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
-			x68k_pcg_add_sprite(draw_x - 8, draw_y, attr_dark, prio);
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			draw_x -= 8;
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_CMD1:
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
-			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark + 1, prio);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_HIGH:
-			x68k_pcg_add_sprite(draw_x - 8, draw_y, attr_dark, prio);
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
-			x68k_pcg_add_sprite(draw_x + 8, draw_y, attr_dark, prio);
+			draw_x -= 8;
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_LOW:
-			x68k_pcg_add_sprite(draw_x - 16, draw_y, attr_dark + 1, prio);
-			x68k_pcg_add_sprite(draw_x, draw_y, attr, prio);
+			draw_x -= 16;
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x82);
+			*nt1++ = PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 	}
+	x68k_pcg_set_bg1_xscroll(-draw_x);
+	x68k_pcg_set_bg1_yscroll(-draw_y);
 }
 
-void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p,
-                                  int16_t cam_x, int16_t cam_y)
+void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p)
 {
 	if (p->state != EDITOR_NORMAL) return;
-	draw_cursor_with_sprite(p, cam_x, cam_y);
+	draw_cursor_with_nt1(p);
 }
