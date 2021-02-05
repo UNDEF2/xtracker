@@ -16,73 +16,59 @@
 #include "xt_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
-#include "xt_vbl.h"
+#include "xt_irq.h"
+#include "xt_display.h"
 
 static Xt xt;
 static XtTrackRenderer renderer;
 static XtKeys keys;
 static XtPhraseEditor phrase_editor;
+static XtDisplay display;
 
 #define CRT_FLAGS 0x0001
-
-typedef struct DisplayMode
-{
-	X68kCrtcConfig crtc;
-	X68kPcgConfig pcg;
-	X68kVidconConfig vidcon;
-} DisplayMode;
-
-// This is a pretty messed up 512x256 active picture mode that abuses the HRES
-// bit of the PCG to get 8x8 tiles when in 512px width, but sprites end up
-// broken as the right side of the sprite buffer is not cleared.
-static const DisplayMode mode_512_256 =
+static const XtDisplayMode mode_15k =
 {
 	{
-		0x004D, 0x0005, 0x000A, 0x0049,
-		0x0103, 0x0002, 0x000F, 0x00FF,
+		0x004C, 0x0007, 0x000A, 0x004A,
+		0x0106, 0x0002, 0x0010, 0x00FF,
 		0x20, CRT_FLAGS
 	},
 	{
-		0x00FF, 0x000E, 0x001D, 0x0000
+		0x00FF, 0x000E, 0x0010, 0x0000
 	},
 	{
 		(CRT_FLAGS >> 8), 0x12E4, 0x007F
 	}
 };
+#undef CRT_FLAGS
 
-static const DisplayMode mode_448 =
+#define CRT_FLAGS 0x0015
+static const XtDisplayMode mode_31k =
 {
 	{
-		0x004B, 0x0003, 0x000A, 0x0042,
-		0x0106, 0x0002, 0x0014, 0x0103,
-		0x20, CRT_FLAGS
+		0x005B, 0x0008, 0x0011, 0x0051,
+		0x0237, 0x0005, 0x001C, 0x021C,
+		0x1B, CRT_FLAGS
 	},
 	{
-		0x00FF, 0x000E, 0x0014, 0x0000
+		0x00FF, 0x0015, 0x001C, 0x0010
 	},
 	{
 		(CRT_FLAGS >> 8), 0x12E4, 0x007F
 	}
 };
+#undef CRT_FLAGS
 
-static const X68kPcgConfig pcg_clear_hack =
+static const XtDisplayMode *display_modes[] =
 {
-	0x00FF, 0x000E, 0x0014, 0x0001
+	&mode_31k,
+	&mode_15k,
 };
 
 int video_init(void)
 {
-	const DisplayMode *mode = &mode_448;
-	x68k_crtc_init(&mode->crtc);
-	x68k_vidcon_init(&mode->vidcon);
-	xt_vbl_init();
-	// Init PCG in "wide" mode for one frame to clear the line buffers.;
-	x68k_pcg_init(&pcg_clear_hack);
-	x68k_vbl_wait_for_vblank();
-
-
-	x68k_pcg_init(&mode->pcg);
-
+	xt_display_init(&display, display_modes, ARRAYSIZE(display_modes));
+	xt_irq_init();
 
 	// Clear PCG nametables and data
 	x68k_vbl_wait_for_vblank();
@@ -227,8 +213,9 @@ int main(int argc, char **argv)
 	_iocs_g_clr_on();
 	_iocs_b_putmes(1, 0, 0, 20, "Loading XTracker...");
 
-	_iocs_bgtextcl(0, 0x20);
-	_iocs_bgtextcl(1, 0x20);
+	_iocs_bgtextcl(0, 0);
+	_iocs_bgtextcl(1, 0);
+	_iocs_b_putmes(1, 0, 0, 20, "Text cleared");
 
 	if (!video_init())
 	{
@@ -246,17 +233,21 @@ int main(int argc, char **argv)
 	set_demo_instruments();
 
 	// Surely we can clear the screen more effectively than this
-	for (int i = 0; i < 15; i++)
+	for (int i = 0; i < 31; i++)
 	{
 		_iocs_b_putmes(1, 0, i, 64, "                                               ");
 	}
 
 	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
 
+	_iocs_b_putmes(1, 0, 0, 38, "00 01 02 03 04 05 06 07 08 09 0A 0B");
+
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
 	{
-		xt_keys_update(&keys);
+		xt_keys_poll(&keys);
+
+		XtKeyEvent key_event;
 
 		switch (xt.focus)
 		{
@@ -265,8 +256,21 @@ int main(int argc, char **argv)
 			case XT_UI_FOCUS_PATTERN:
 				// TODO: tick the playback engine and register updates based
 				// on the OPM timer.
-				xt_tick(&xt);
-				xt_phrase_editor_tick(&phrase_editor, &xt.track, &keys);
+				xt_poll(&xt);
+
+				// TODO: This is a hack, if this works it needs to be done properly
+				const XtDisplayMode *mode = xt_display_get_mode(&display);
+				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
+				renderer.visible_channels = visible_channels;
+				phrase_editor.visible_channels = visible_channels;
+				while (xt_keys_event_pop(&keys, &key_event))
+				{
+					xt_display_on_key(&display, key_event);
+					if (!xt.playing)
+					{
+						xt_phrase_editor_on_key(&phrase_editor, &xt.track, key_event);
+					}
+				}
 				if (xt.playing)
 				{
 					if (xt_keys_pressed(&keys, XT_KEY_CR))
@@ -289,19 +293,19 @@ int main(int argc, char **argv)
 					}
 					xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
 					xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
-					xt_phrase_editor_draw_cursor(&phrase_editor);
 				}
 				xt_update_opm_registers(&xt);
 				break;
 		}
 
 		x68k_pcg_finish_sprites();
-		xt_vbl_wait(0);
+		xt_irq_wait_vbl();
 	}
-	xt_vbl_shutdown();
+	xt_irq_shutdown();
 
 //	_iocs_crtmod(old_crt_mode);
 	_iocs_b_curon();
+	_iocs_os_curon();
 	_iocs_g_clr_on();
 
 	return 0;

@@ -46,17 +46,17 @@ typedef struct XtPhraseEditor
 	// >= 5 columns away.
 	int16_t cam_column;
 
+	int16_t visible_channels;
+
 	int16_t base_cursor_line_drawn;
 } XtPhraseEditor;
 
 void xt_phrase_editor_init(XtPhraseEditor *p);
 
-void xt_phrase_editor_tick(XtPhraseEditor *p, XtTrack *t, const XtKeys *k);
+void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e);
 
 // Mark channel(s) as dirty in the XtTrackRenderer
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
-
-void xt_phrase_editor_draw_cursor(const XtPhraseEditor *p);
 
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);

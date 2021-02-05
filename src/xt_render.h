@@ -30,6 +30,8 @@ typedef struct XtTrackRenderer
 {
 	XtChannelRenderState channel[XT_TOTAL_CHANNEL_COUNT];
 
+	int16_t visible_channels;
+
 	// "Camera" position.
 	int16_t cam_x, cam_y;
 

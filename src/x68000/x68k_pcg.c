@@ -35,14 +35,14 @@ void x68k_pcg_init(const X68kPcgConfig *c)
 	pcg_reg[3] = c->flags;
 
 	x68k_pcg_set_disp_en(0);
-	x68k_pcg_set_bg1_txsel(1);
 	x68k_pcg_set_bg0_txsel(0);
-	x68k_pcg_set_bg0_xscroll(0);
-	x68k_pcg_set_bg0_yscroll(0);
-	x68k_pcg_set_bg1_xscroll(0);
-	x68k_pcg_set_bg1_yscroll(0);
+	x68k_pcg_set_bg1_txsel(1);
 	x68k_pcg_set_bg0_enable(1);
 	x68k_pcg_set_bg1_enable(1);
+	x68k_pcg_set_bg0_xscroll(0);
+	x68k_pcg_set_bg1_xscroll(0);
+	x68k_pcg_set_bg0_yscroll(0);
+	x68k_pcg_set_bg1_yscroll(0);
 	x68k_pcg_clear_sprites();
 	x68k_pcg_set_disp_en(1);
 }

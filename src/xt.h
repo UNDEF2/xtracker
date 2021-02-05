@@ -108,7 +108,7 @@ typedef struct Xt
 } Xt;
 
 void xt_init(Xt *xt);
-void xt_tick(Xt *xt);
+void xt_poll(Xt *xt);
 void xt_update_opm_registers(Xt *xt);
 
 // -1 to resume playback at current frame

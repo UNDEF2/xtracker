@@ -213,7 +213,7 @@ void xt_init(Xt *xt)
 	xt->config.row_highlight[1] = 16;
 }
 
-void xt_tick(Xt *xt)
+void xt_poll(Xt *xt)
 {
 	if (!xt->playing) return;
 	// Process all channels for playback.

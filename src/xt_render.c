@@ -245,6 +245,8 @@ void xt_track_renderer_init(XtTrackRenderer *r)
 	{
 		x68k_vidcon_set_pcg_color(0x10 + i, default_palette[i]);
 	}
+
+	r->visible_channels = 7;
 }
 
 void xt_track_renderer_repaint_channel(XtTrackRenderer *r, uint16_t channel)
@@ -324,9 +326,7 @@ void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y)
 	const int16_t left_visible_channel = (x) /
 	                                     (XT_RENDER_CELL_PIXELS *
 	                                      XT_RENDER_CELL_WIDTH_TILES);
-	const int16_t right_visible_channel = left_visible_channel +
-	                                      (XT_RENDER_VISIBLE_WIDTH_TILES /
-	                                       XT_RENDER_CELL_WIDTH_TILES);
+	const int16_t right_visible_channel = left_visible_channel + r->visible_channels;
 
 	for (int16_t i = 0; i < ARRAYSIZE(r->channel); i++)
 	{

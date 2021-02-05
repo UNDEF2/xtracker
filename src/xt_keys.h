@@ -130,8 +130,18 @@ typedef enum XtKeyName
 	XT_KEY_OPT2,
 	XT_KEY_OPT1,
 	XT_KEY_CTRL,
-	XT_KEY_SHIFT
+	XT_KEY_SHIFT,
+
+	XT_KEY_INVALID,
 } XtKeyName;
+
+// Bitfield for modifier keys that have been pressed.
+typedef enum XtKeyModifier
+{
+	XT_KEY_MOD_SHIFT     = 0x0001,
+	XT_KEY_MOD_CTRL      = 0x0002,
+	XT_KEY_MOD_IS_REPEAT = 0x1000,
+} XtKeyModifier;
 
 typedef struct XtKeyID
 {
@@ -139,14 +149,37 @@ typedef struct XtKeyID
 	uint8_t mask;
 } XtKeyID;
 
+typedef struct XtKeyEvent
+{
+	XtKeyName name;
+	XtKeyModifier modifiers;
+} XtKeyEvent;
+
 typedef struct XtKeys
 {
+	// State of all keys in X68k-native bitfield format
 	uint8_t key_bits[15];
 	uint8_t key_bits_prev[15];
+
+	// Key event FIFO
+	XtKeyEvent key_events[16];
+	int16_t key_w;
+	int16_t key_r;
+
+	// Key repeat state
+	XtKeyName repeat_name;
+	int16_t repeat_cnt;
+	int16_t repeat_delay;  // TODO: Load from application config.
+	int16_t repeat_period;  // TODO: Load from application config.
 } XtKeys;
 
 void xt_keys_init(XtKeys *k);
-void xt_keys_update(XtKeys *k);
+void xt_keys_poll(XtKeys *k);
+
+// Get the next key event logged since the last poll.
+// Returns 1 if `out` was populated.
+int16_t xt_keys_event_pop(XtKeys *k, XtKeyEvent *out);
+
 uint8_t xt_keys_pressed(const XtKeys *k, XtKeyName name);
 uint8_t xt_keys_held(const XtKeys *k, XtKeyName name);
 

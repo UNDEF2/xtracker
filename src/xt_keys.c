@@ -4,6 +4,8 @@
 #include <string.h>
 #include <iocs.h>
 
+
+
 static const XtKeyID key_lookup[] =
 {
 	[XT_KEY_6] = {0x0, 0x80},
@@ -137,30 +139,109 @@ static const XtKeyID key_lookup[] =
 void xt_keys_init(XtKeys *k)
 {
 	memset(k, 0, sizeof(*k));
+	k->repeat_delay = 12;
+	k->repeat_period = 1;
 }
 
-void xt_keys_update(XtKeys *k)
-{
-	for (int i = 0; i < ARRAYSIZE(k->key_bits); i++)
-	{
-		k->key_bits_prev[i] = k->key_bits[i];
-		k->key_bits[i] = _iocs_bitsns(i);
-	}
-}
-
-static inline uint8_t held_body(const XtKeys *k, XtKeyName name)
+static inline uint8_t key_is_held(const XtKeys *k, XtKeyName name)
 {
 	const XtKeyID *id = &key_lookup[name];
 	return k->key_bits[id->group] & id->mask;
 }
 
+static inline XtKeyModifier get_modifiers(XtKeys *k)
+{
+	XtKeyModifier ret = 0;
+	if (key_is_held(k, XT_KEY_SHIFT))
+	{
+		ret |= XT_KEY_MOD_SHIFT;
+	}
+	if (key_is_held(k, XT_KEY_CTRL))
+	{
+		ret |= XT_KEY_MOD_CTRL;
+	}
+	return ret;
+}
+
+static inline void event_push(XtKeys *k, XtKeyName name, int16_t repeat)
+{
+	const int16_t next_w = (k->key_w + 1) % ARRAYSIZE(k->key_events);
+	if (next_w == k->key_r)
+	{
+		return;
+	}
+
+	k->key_events[k->key_w].name = name;
+	k->key_events[k->key_w].modifiers = get_modifiers(k);
+	if (repeat) k->key_events[k->key_w].modifiers |= XT_KEY_MOD_IS_REPEAT;
+	k->key_w = next_w;
+}
+
+void xt_keys_poll(XtKeys *k)
+{
+	// Update key matrix bitfields
+	for (int i = 0; i < ARRAYSIZE(k->key_bits); i++)
+	{
+		k->key_bits_prev[i] = k->key_bits[i];
+		k->key_bits[i] = _iocs_bitsns(i);
+	}
+
+	// Generate events
+	for (XtKeyName i = 0; i < XT_KEY_INVALID; i++)
+	{
+		if (xt_keys_pressed(k, i))
+		{
+			event_push(k, i, 0);
+			if (k->repeat_name != i)
+			{
+				k->repeat_name = i;
+				k->repeat_cnt = 0;
+			}
+		}
+	}
+
+	// Key repeat
+	if (k->repeat_name != XT_KEY_INVALID)
+	{
+		if (xt_keys_held(k, k->repeat_name))
+		{
+			k->repeat_cnt++;
+			if (k->repeat_cnt >= k->repeat_delay)
+			{
+				event_push(k, k->repeat_name, 1);
+				k->repeat_cnt -= k->repeat_period;
+			}
+		}
+		else
+		{
+			k->repeat_name = XT_KEY_INVALID;
+		}
+	}
+}
+
+// Get the next key event logged since the last poll.
+// Returns 1 if `out` was populated.
+int16_t xt_keys_event_pop(XtKeys *k, XtKeyEvent *out)
+{
+	if (k->key_r == k->key_w)
+	{
+		return 0;
+	}
+	const int16_t next_r = (k->key_r + 1) % ARRAYSIZE(k->key_events);
+
+	*out = k->key_events[k->key_r];
+
+	k->key_r = next_r;
+	return 1;
+}
+
 uint8_t xt_keys_pressed(const XtKeys *k, XtKeyName name)
 {
 	const XtKeyID *id = &key_lookup[name];
-	return held_body(k, name) & ~(k->key_bits_prev[id->group]);
+	return key_is_held(k, name) & ~(k->key_bits_prev[id->group]);
 }
 
 uint8_t xt_keys_held(const XtKeys *k, XtKeyName name)
 {
-	return held_body(k, name);
+	return key_is_held(k, name);
 }
