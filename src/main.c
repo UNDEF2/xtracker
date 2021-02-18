@@ -25,6 +25,8 @@ static XtKeys keys;
 static XtPhraseEditor phrase_editor;
 static XtDisplay display;
 
+static int16_t s_old_crt_mode;
+
 #define CRT_FLAGS 0x0001
 static const XtDisplayMode mode_15k =
 {
@@ -95,7 +97,6 @@ int video_init(void)
 	}
 	fclose(f);
 
-	// Set up PCG to use backgrounds for our text
 	x68k_pcg_set_bg0_txsel(0);
 	x68k_pcg_set_bg1_txsel(1);
 	x68k_pcg_set_bg0_enable(1);
@@ -205,21 +206,53 @@ void set_demo_meta(void)
 	xt.track.loop_point = 1;
 }
 
-int main(int argc, char **argv)
+static int main_init(void)
 {
-	_dos_super(0);
-//	int old_crt_mode = _iocs_crtmod(7);
-	_iocs_b_curoff();
+	// Disable some Human68k stuff we won't be using
 	_iocs_g_clr_on();
-	_iocs_b_putmes(1, 0, 0, 20, "Loading XTracker...");
+	_iocs_b_curoff();
+	_iocs_ms_curof();
+	_iocs_skey_mod(0, 0, 0);
 
-	_iocs_bgtextcl(0, 0);
-	_iocs_bgtextcl(1, 0);
-	_iocs_b_putmes(1, 0, 0, 20, "Text cleared");
+	// Store the old video mode so we can restore it on exit.
+	s_old_crt_mode = _iocs_crtmod(-1);
+
+	// Let Human68k know that we're using all planes
+	// (this prevents it from popping up the calculator or softkey).
+	_iocs_tgusemd(0, 2);  // Grahpics planes, in use
+	_iocs_tgusemd(1, 2);  // Text planes, in use
 
 	if (!video_init())
 	{
 		fprintf(stderr, "Couldn't start Xtracker.\n");
+		return 0;
+	}
+
+	_iocs_b_clr_al();
+
+	return 1;
+}
+
+static void main_shutdown(void)
+{
+	_iocs_g_clr_on();
+	_iocs_skey_mod(-1, 0, 0);
+	_iocs_b_curon();
+	_iocs_crtmod(s_old_crt_mode);
+
+	_iocs_tgusemd(0, 0);
+	_iocs_tgusemd(1, 0);
+
+	_dos_kflushio(0xFF);
+}
+
+int main(int argc, char **argv)
+{
+	_dos_super(0);
+
+	if (!main_init())
+	{
+		return -1;
 	}
 
 	xt_init(&xt);
@@ -232,15 +265,7 @@ int main(int argc, char **argv)
 	set_demo_meta();
 	set_demo_instruments();
 
-	// Surely we can clear the screen more effectively than this
-	for (int i = 0; i < 31; i++)
-	{
-		_iocs_b_putmes(1, 0, i, 64, "                                               ");
-	}
-
-	_iocs_b_putmes(1, 0, 0, 20, "Welcome to XTracker");
-
-	_iocs_b_putmes(1, 0, 0, 38, "00 01 02 03 04 05 06 07 08 09 0A 0B");
+	int elapsed = 0;
 
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
@@ -300,13 +325,11 @@ int main(int argc, char **argv)
 
 		x68k_pcg_finish_sprites();
 		xt_irq_wait_vbl();
+		elapsed++;
 	}
 	xt_irq_shutdown();
 
-//	_iocs_crtmod(old_crt_mode);
-	_iocs_b_curon();
-	_iocs_os_curon();
-	_iocs_g_clr_on();
+	main_shutdown();
 
 	return 0;
 }

@@ -7,6 +7,16 @@ void apply_mode(const XtDisplayMode *mode)
 	x68k_crtc_init(&mode->crtc);
 	x68k_vidcon_init(&mode->vidcon);
 
+	// Hack to init the PCG with alternative register values to clear the
+	// sprite line buffer. Without this, the right half of the screen may be
+	// filled with randomly colored vertical lines when forcing the PCG to
+	// use 8x8 BG tile pacing in a high resolution mode.
+	static const X68kPcgConfig hires_hack_pcg =
+	{
+		0x00FF, 0x0015, 0x001C, 0x0011
+	};
+	x68k_pcg_init(&hires_hack_pcg);
+
 	x68k_vbl_wait_for_vblank();
 	x68k_pcg_init(&mode->pcg);
 }
