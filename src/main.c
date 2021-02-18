@@ -11,6 +11,7 @@
 #include "x68000/x68k_vbl.h"
 
 #include "common.h"
+#include "cgprint.h"
 #include "irq.h"
 #include "xt.h"
 #include "xt_render.h"
@@ -27,45 +28,90 @@ static XtDisplay display;
 
 static int16_t s_old_crt_mode;
 
-#define CRT_FLAGS 0x0001
+// 512 x 256 @ 55Hz
 static const XtDisplayMode mode_15k =
+#define CRT_FLAGS 0x0001
 {
 	{
-		0x004C, 0x0007, 0x000A, 0x004A,
-		0x0106, 0x0002, 0x0010, 0x00FF,
+		0x004C, 0x0006, 0x0008, 0x0048,
+		0x011C, 0x0002, 0x0014, 0x0114,
 		0x20, CRT_FLAGS
 	},
 	{
-		0x00FF, 0x000E, 0x0010, 0x0000
+		0x00FF, 0x000C, 0x0014, 0x0000
 	},
 	{
-		(CRT_FLAGS >> 8), 0x12E4, 0x007F
+		(CRT_FLAGS >> 8), 0x31E4, 0x007F
 	}
-};
 #undef CRT_FLAGS
+};
 
-#define CRT_FLAGS 0x0015
+// 512 x 512 @ 55Hz (line doubled)
 static const XtDisplayMode mode_31k =
+#define CRT_FLAGS 0x0011
 {
 	{
 		0x005B, 0x0008, 0x0011, 0x0051,
-		0x0237, 0x0005, 0x001C, 0x021C,
+		0x0237, 0x0005, 0x0026, 0x0226,
 		0x1B, CRT_FLAGS
 	},
 	{
-		0x00FF, 0x0015, 0x001C, 0x0010
+		0x00FF, 0x0015, 0x0026, 0x0010
 	},
 	{
-		(CRT_FLAGS >> 8), 0x12E4, 0x007F
+		(CRT_FLAGS >> 8), 0x31E4, 0x007F
 	}
-};
 #undef CRT_FLAGS
+};
 
 static const XtDisplayMode *display_modes[] =
 {
-	&mode_31k,
 	&mode_15k,
+	&mode_31k,
 };
+
+//static uint8_t txfnt[2048];
+//static uint8_t cgfnt[8192];
+static uint8_t cgfnt8[16384];
+
+static void draw_fnc_label(int16_t i, const char *s)
+{
+	static const int16_t box_w = 1 + 6 * 7;
+	static const int16_t box_h = 9;
+	static const int16_t box_x_margin = 6;
+	static const int16_t box_y = 256 - box_h - 1;
+
+	int16_t box_x = box_x_margin + (i * (box_w + box_x_margin)) + ((i >= 5) ? (2 * box_x_margin) : 0);
+	cgbox(0, 15, box_x, box_y, box_x + box_w, box_y + box_h);
+	cgprint(cgfnt8, 0, 1, s, box_x + 1, box_y + 1);
+}
+
+// Give it a try using just the 
+void draw_mock_ui(void)
+{
+	FILE *f = fopen("CGFNT8.BIN", "rb");
+	if (!f)
+	{
+		fprintf(stderr, "Couldn't read font\n");
+	}
+	fread(cgfnt8, 1, ARRAYSIZE(cgfnt8), f);
+	fclose(f);
+	for (int i = 0; i < 24; i++)
+	{
+		cgprint(cgfnt8, 0, i, "colors", i, 7 * i);
+	}
+	// Draw bottom legend
+	draw_fnc_label(0, "FILE");
+	draw_fnc_label(1, "PATTERN");
+	draw_fnc_label(2, "META");
+	draw_fnc_label(3, "INSTR");
+	draw_fnc_label(4, "ARRANGE");
+	draw_fnc_label(5, "");
+	draw_fnc_label(6, "");
+	draw_fnc_label(7, "");
+	draw_fnc_label(8, "");
+	draw_fnc_label(9, "");
+}
 
 int video_init(void)
 {
@@ -220,7 +266,7 @@ static int main_init(void)
 	// Let Human68k know that we're using all planes
 	// (this prevents it from popping up the calculator or softkey).
 	_iocs_tgusemd(0, 2);  // Grahpics planes, in use
-	_iocs_tgusemd(1, 2);  // Text planes, in use
+	_iocs_tgusemd(1, 0);  // Let Human use the text planes.
 
 	if (!video_init())
 	{
@@ -266,6 +312,8 @@ int main(int argc, char **argv)
 	set_demo_instruments();
 
 	int elapsed = 0;
+
+	draw_mock_ui();
 
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))

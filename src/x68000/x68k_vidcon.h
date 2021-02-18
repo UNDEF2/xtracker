@@ -41,7 +41,7 @@ typedef struct X68kVidconConfig
 	// This should match CRTC R20 bits 8-10 shifted down to bits 0-2.
 	uint16_t screen;
 
-	// R1: Priotity
+	// R1: Priority
 	// Ordering between layer groups, and between the graphics planes within
 	// the graphics plane group.
 	// 0 = topmost; 3 = bottom-most.

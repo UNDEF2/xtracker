@@ -93,6 +93,18 @@ typedef struct X68kCrtcConfig
 	      |
 	       \____________ Plane size:       0 = 512  dots
 	                                       1 = 1024 dots
+
+	The first bit of the horizontal display acts as an enable for a dot clock
+	divider (active low). It affects crtc timings by a factor of two.
+
+	The second bit of the horizontal display appears to select the dot clock.
+	The faster dot clock of the 768 dot mode allows for roughly square pixels,
+	but PCG is incompatible, and using both will cause an open bus error.
+
+	If the vertical height is set to 256 dots while f is set to 31.5KHz, lines will be
+	doubled.
+
+	The frequency select also appears to active a clock divider (active low).
 	*/
 } X68kCrtcConfig;
 
