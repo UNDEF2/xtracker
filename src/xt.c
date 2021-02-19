@@ -224,7 +224,7 @@ void xt_poll(Xt *xt)
 		// The bank of phrases associated with this channel.
 		const uint16_t idx_base = (XT_PHRASES_PER_CHANNEL * i);
 		// The phrase number referred to by the arrangement table.
-		const uint16_t idx = xt->track.frames[xt->current_frame].row_idx[i];
+		const uint16_t idx = xt->track.frames[xt->current_frame].phrase_id[i];
 		// The phrase as referred to.
 		const XtPhrase *phrase = &xt->track.phrases[idx_base + idx];
 

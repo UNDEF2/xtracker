@@ -14,31 +14,38 @@
 #include "cgprint.h"
 #include "irq.h"
 #include "xt.h"
-#include "xt_render.h"
+#include "xt_arrange_render.h"
+#include "xt_track_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
 #include "xt_irq.h"
 #include "xt_display.h"
+#include "xt_palette.h"
 
 static Xt xt;
-static XtTrackRenderer renderer;
+static XtArrangeRenderer arrange_renderer;
+static XtTrackRenderer track_renderer;
 static XtKeys keys;
 static XtPhraseEditor phrase_editor;
 static XtDisplay display;
 
 static int16_t s_old_crt_mode;
 
+// Base configuration for high x low resolution scan, and 2 x 256-color 
+// CG planes.
+#define CRT_FLAGS_BASE 0x0101
+
 // 512 x 256 @ 55Hz
 static const XtDisplayMode mode_15k =
-#define CRT_FLAGS 0x0001
+#define CRT_FLAGS CRT_FLAGS_BASE
 {
 	{
-		0x004C, 0x0006, 0x0008, 0x0048,
+		0x004C, 0x0009, 0x000A, 0x004A,
 		0x011C, 0x0002, 0x0014, 0x0114,
 		0x20, CRT_FLAGS
 	},
 	{
-		0x00FF, 0x000C, 0x0014, 0x0000
+		0x00FF, 0x000E, 0x0014, 0x0000
 	},
 	{
 		(CRT_FLAGS >> 8), 0x31E4, 0x007F
@@ -48,7 +55,8 @@ static const XtDisplayMode mode_15k =
 
 // 512 x 512 @ 55Hz (line doubled)
 static const XtDisplayMode mode_31k =
-#define CRT_FLAGS 0x0011
+// Enables line doubler.
+#define CRT_FLAGS CRT_FLAGS_BASE | 0x0010
 {
 	{
 		0x005B, 0x0008, 0x0011, 0x0051,
@@ -70,10 +78,6 @@ static const XtDisplayMode *display_modes[] =
 	&mode_31k,
 };
 
-//static uint8_t txfnt[2048];
-//static uint8_t cgfnt[8192];
-static uint8_t cgfnt8[16384];
-
 static void draw_fnc_label(int16_t i, const char *s)
 {
 	static const int16_t box_w = 1 + 6 * 7;
@@ -83,23 +87,11 @@ static void draw_fnc_label(int16_t i, const char *s)
 
 	int16_t box_x = box_x_margin + (i * (box_w + box_x_margin)) + ((i >= 5) ? (2 * box_x_margin) : 0);
 	cgbox(0, 15, box_x, box_y, box_x + box_w, box_y + box_h);
-	cgprint(cgfnt8, 0, 1, s, box_x + 1, box_y + 1);
+	cgprint(0, 1, s, box_x + 1, box_y + 1);
 }
 
-// Give it a try using just the 
 void draw_mock_ui(void)
 {
-	FILE *f = fopen("CGFNT8.BIN", "rb");
-	if (!f)
-	{
-		fprintf(stderr, "Couldn't read font\n");
-	}
-	fread(cgfnt8, 1, ARRAYSIZE(cgfnt8), f);
-	fclose(f);
-	for (int i = 0; i < 24; i++)
-	{
-		cgprint(cgfnt8, 0, i, "colors", i, 7 * i);
-	}
 	// Draw bottom legend
 	draw_fnc_label(0, "FILE");
 	draw_fnc_label(1, "PATTERN");
@@ -128,10 +120,11 @@ int video_init(void)
 
 	// Load font tileset
 	FILE *f;
-	f = fopen("PCG.BIN", "rb");
+	f = fopen("RES\\PCG.BIN", "rb");
 	if (!f)
 	{
 		fprintf(stderr, "Error: Could not load PCG data.\n");
+		return 0;
 	}
 	volatile uint16_t *pcg_data = (volatile uint16_t *)PCG_TILE_DATA;
 	while (!feof(f))
@@ -238,7 +231,7 @@ void set_demo_meta(void)
 	{
 		for (int c = 0; c < 8; c++)
 		{
-			xt.track.frames[i].row_idx[c] = i;
+			xt.track.frames[i].phrase_id[c] = i;
 		}
 	}
 
@@ -268,6 +261,8 @@ static int main_init(void)
 	_iocs_tgusemd(0, 2);  // Grahpics planes, in use
 	_iocs_tgusemd(1, 0);  // Let Human use the text planes.
 
+	cgprint_load("RES\\CGFNT8.BIN");
+
 	if (!video_init())
 	{
 		fprintf(stderr, "Couldn't start Xtracker.\n");
@@ -275,6 +270,8 @@ static int main_init(void)
 	}
 
 	_iocs_b_clr_al();
+
+	xt_palette_init();
 
 	return 1;
 }
@@ -292,6 +289,20 @@ static void main_shutdown(void)
 	_dos_kflushio(0xFF);
 }
 
+// TODO: xt_ui.c
+typedef enum XtUiFocus
+{
+	XT_UI_FOCUS_PATTERN,
+	XT_UI_FOCUS_ARRANGE,
+	XT_UI_FOCUS_INSTRUMENT_LIST,
+	XT_UI_FOCUS_INSTRUMENT_EDIT,
+	XT_UI_FOCUS_INSTRUMENT_FILE,
+	XT_UI_FOCUS_META,
+	XT_UI_FOCUS_ADPCM_MAPPING,
+	XT_UI_FOCUS_ADPCM_FILE,
+	// TODO: Instrument file dialogue, ADPCM file dialogue, ADPCM mapping
+} XtUiFocus;
+
 int main(int argc, char **argv)
 {
 	_dos_super(0);
@@ -303,7 +314,8 @@ int main(int argc, char **argv)
 
 	xt_init(&xt);
 	x68k_wait_for_vsync();
-	xt_track_renderer_init(&renderer);
+	xt_track_renderer_init(&track_renderer);
+	xt_arrange_renderer_init(&arrange_renderer);
 	xt_keys_init(&keys);
 	xt_phrase_editor_init(&phrase_editor);
 
@@ -315,6 +327,8 @@ int main(int argc, char **argv)
 
 	draw_mock_ui();
 
+	XtUiFocus focus = 0;
+
 	// The main loop.
 	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
 	{
@@ -322,7 +336,7 @@ int main(int argc, char **argv)
 
 		XtKeyEvent key_event;
 
-		switch (xt.focus)
+		switch (focus)
 		{
 			default:
 				break;
@@ -334,7 +348,7 @@ int main(int argc, char **argv)
 				// TODO: This is a hack, if this works it needs to be done properly
 				const XtDisplayMode *mode = xt_display_get_mode(&display);
 				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
-				renderer.visible_channels = visible_channels;
+				track_renderer.visible_channels = visible_channels;
 				phrase_editor.visible_channels = visible_channels;
 				while (xt_keys_event_pop(&keys, &key_event))
 				{
@@ -344,6 +358,7 @@ int main(int argc, char **argv)
 						xt_phrase_editor_on_key(&phrase_editor, &xt.track, key_event);
 					}
 				}
+	
 				if (xt.playing)
 				{
 					if (xt_keys_pressed(&keys, XT_KEY_CR))
@@ -351,9 +366,11 @@ int main(int argc, char **argv)
 						xt_stop_playing(&xt);
 						xt.playing = 0;
 					}
+					// Focus the "camera" down a little bit to make room for the HUD.
 					const int16_t yscroll = (xt.current_phrase_row - 16) * 8;
-					xt_track_renderer_set_camera(&renderer, xt_phrase_editor_get_cam_x(&phrase_editor), yscroll);
-					xt_track_renderer_tick(&renderer, &xt, xt.current_frame);
+					xt_track_renderer_set_camera(&track_renderer, xt_phrase_editor_get_cam_x(&phrase_editor), yscroll);
+					xt_track_renderer_tick(&track_renderer, &xt, xt.current_frame);
+					xt_arrange_renderer_tick(&arrange_renderer, &xt.track, xt.current_frame, -1);
 				}
 				else
 				{
@@ -364,8 +381,9 @@ int main(int argc, char **argv)
 						                 xt_keys_held(&keys, XT_KEY_SHIFT));
 						xt.playing = 1;
 					}
-					xt_phrase_editor_update_renderer(&phrase_editor, &renderer);
-					xt_track_renderer_tick(&renderer, &xt, phrase_editor.frame);
+					xt_phrase_editor_update_renderer(&phrase_editor, &track_renderer);
+					xt_track_renderer_tick(&track_renderer, &xt, phrase_editor.frame);
+					xt_arrange_renderer_tick(&arrange_renderer, &xt.track, phrase_editor.frame, phrase_editor.column);
 				}
 				xt_update_opm_registers(&xt);
 				break;

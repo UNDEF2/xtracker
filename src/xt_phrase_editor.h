@@ -3,7 +3,7 @@
 
 #include "xt_track.h"
 #include "xt_keys.h"
-#include "xt_render.h"
+#include "xt_track_render.h"
 #include <stdint.h>
 
 typedef enum XtEditorCursorSubPos

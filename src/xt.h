@@ -67,19 +67,6 @@ typedef struct XtFmChannelState
 	int16_t cache_invalid;
 } XtFmChannelState;
 
-typedef enum XtUiFocus
-{
-	XT_UI_FOCUS_PATTERN,
-	XT_UI_FOCUS_ARRANGE,
-	XT_UI_FOCUS_INSTRUMENT_LIST,
-	XT_UI_FOCUS_INSTRUMENT_EDIT,
-	XT_UI_FOCUS_INSTRUMENT_FILE,
-	XT_UI_FOCUS_META,
-	XT_UI_FOCUS_ADPCM_MAPPING,
-	XT_UI_FOCUS_ADPCM_FILE,
-	// TODO: Instrument file dialogue, ADPCM file dialogue, ADPCM mapping
-} XtUiFocus;
-
 // Configuration data that should persist between sessions.
 typedef struct XtConfig
 {
@@ -91,8 +78,6 @@ typedef struct Xt
 	XtTrack track;
 	XtFmChannelState fm_state[XT_FM_CHANNEL_COUNT];
 	XtConfig config;
-
-	XtUiFocus focus;
 
 	int16_t current_frame;  // Index into the entire track.
 	int16_t current_phrase_row;  // Index into the current phrase.

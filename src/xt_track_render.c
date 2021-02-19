@@ -1,4 +1,4 @@
-#include "xt_render.h"
+#include "xt_track_render.h"
 
 #include "common.h"
 #include <string.h>
@@ -7,62 +7,6 @@
 #include "x68000/x68k_pcg.h"
 #include "x68000/x68k_vidcon.h"
 
-static const uint16_t default_palette[] =
-{
-	// Line 1 - Normal rows
-	PAL_RGB8(0x00, 0x00, 0x00),
-	PAL_RGB8(0x20, 0x20, 0x20),  // Separator
-	PAL_RGB8(0x20, 0x20, 0x20),  // Empty data grey
-	PAL_RGB8(0xB0, 0xB0, 0xB0),  // Note column
-	PAL_RGB8(0x30, 0xB0, 0x60),  // Instrument column
-	PAL_RGB8(0x60, 0x10, 0xB0),  // Effects command
-	PAL_RGB8(0x20, 0x88, 0xB0),  // Effects param
-	0, // Unused
-	PAL_RGB8(0x08, 0x00, 0x30),  // Highlight backing
-	PAL_RGB8(0x20, 0x00, 0x60),  // Highlight main
-	PAL_RGB8(0x10, 0x00, 0x40),  // Highlight sub
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-
-	// Line 2 - / 16 highlight
-	PAL_RGB8(0x00, 0x00, 0x00),
-	PAL_RGB8(0x20, 0x20, 0x20),  // Separator
-	PAL_RGB8(0x40, 0x40, 0x40),  // Empty data grey
-	PAL_RGB8(0xD0, 0xD0, 0xD0),  // Note column
-	PAL_RGB8(0x38, 0xD0, 0x70),  // Instrument column
-	PAL_RGB8(0x70, 0x20, 0xD0),  // Effects command
-	PAL_RGB8(0x28, 0x98, 0xD0),  // Effects param
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-
-	// Line 3 - / 4 highlight
-	PAL_RGB8(0x00, 0x00, 0x00),
-	PAL_RGB8(0x20, 0x20, 0x20),  // Separator
-	PAL_RGB8(0x60, 0x60, 0x60),  // Empty data grey
-	PAL_RGB8(0xF8, 0xF8, 0xF8),  // Note column
-	PAL_RGB8(0x50, 0xF8, 0x70),  // Instrument column
-	PAL_RGB8(0x80, 0x30, 0xF8),  // Effects command
-	PAL_RGB8(0x40, 0xA8, 0xF8),  // Effects param
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-	0, // Unused
-};
 
 // These strings look odd because they align to tiles in letter positions
 // for non-letter things (e.g. '-'. '#').
@@ -238,12 +182,6 @@ void xt_track_renderer_init(XtTrackRenderer *r)
 	{
 		r->channel[i].last_phrase_id = -1;
 		r->channel[i].dirty = 1;
-	}
-
-	// Load the palette.
-	for (int i = 0; i < ARRAYSIZE(default_palette); i++)
-	{
-		x68k_vidcon_set_pcg_color(0x10 + i, default_palette[i]);
 	}
 
 	r->visible_channels = 7;

@@ -3,7 +3,7 @@
 
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
-#define XT_PHRASES_PER_CHANNEL 96
+#define XT_PHRASES_PER_CHANNEL 256
 #define XT_FM_CHANNEL_COUNT 8
 #define XT_PCM_CHANNEL_COUNT 4
 #define XT_TOTAL_CHANNEL_COUNT (XT_FM_CHANNEL_COUNT + XT_PCM_CHANNEL_COUNT)
@@ -96,20 +96,20 @@ typedef struct XtCell
 typedef struct XtPhrase
 {
 	XtCell cells[XT_PHRASE_MAX_ROWS];
-	uint16_t phrase_valid;
+	int16_t phrase_valid;
 } XtPhrase;
 
 // One row within the arrangement table.
 typedef struct XtFrame
 {
-	uint16_t row_idx[XT_TOTAL_CHANNEL_COUNT];
+	int16_t phrase_id[XT_TOTAL_CHANNEL_COUNT];
 } XtFrame;
 
 typedef struct XtSample
 {
 	char *name[64];
-	uint16_t data_valid;
-	uint16_t data_size;
+	int16_t data_valid;
+	int16_t data_size;
 	uint8_t *data;
 } XtSample;
 
@@ -129,13 +129,19 @@ typedef struct XtInstrument
 typedef struct XtTrack
 {
 	char title[256];
-	uint16_t num_phrases;
-	XtPhrase phrases[XT_TOTAL_CHANNEL_COUNT * XT_PHRASES_PER_CHANNEL];
-	uint16_t num_frames;
+	// One "frame" is a row in the arrange table. For each column a "phrase" is
+	// referenced by number.
+	int16_t num_frames;
 	XtFrame frames[XT_FRAME_COUNT];
-	uint16_t num_instruments;
+	// A "phrase" is a single collection of pattern data - notes, etc. Phrases
+	// are separated per-channel.
+	int16_t num_phrases;
+	XtPhrase phrases[XT_TOTAL_CHANNEL_COUNT * XT_PHRASES_PER_CHANNEL];
+	// Instruments are patch configurations / ADPCM / MIDI mappings.
+	int16_t num_instruments;
 	XtInstrument instruments[XT_INSTRUMENT_COUNT];
-	uint16_t num_samples;
+	// ADPCM storage, which can be referenced by an ADPCM instrument.
+	int16_t num_samples;
 	XtSample samples[XT_SAMPLE_COUNT];
 
 	int16_t ticks_per_row;  // Current ticks per row (can change during play)

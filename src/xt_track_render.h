@@ -1,5 +1,5 @@
-#ifndef _XT_RENDER_H
-#define _XT_RENDER_H
+#ifndef _XT_TRACK_RENDER_H
+#define _XT_TRACK_RENDER_H
 
 #include "xt.h"
 
@@ -49,4 +49,4 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame);
 
 void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y);
 
-#endif
+#endif  // XT_TRACK_RENDER

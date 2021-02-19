@@ -17,8 +17,8 @@ registers are touched.
 #include <stdint.h>
 
 // VRAM memory mapping
-#define GVRAM_BASE ((uint8_t *)0xC00000)
-#define TVRAM_BASE ((uint8_t *)0xE00000)
+#define GVRAM_BASE ((uint16_t *)0xC00000)
+#define TVRAM_BASE ((uint16_t *)0xE00000)
 #define CRTC_BASE ((uint16_t *)0xE80000)
 
 // Struct representing CRTC configuration registers.

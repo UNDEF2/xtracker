@@ -79,7 +79,7 @@ typedef struct X68kVidconConfig
 void x68k_vidcon_init(const X68kVidconConfig *c);
 
 // Graphics plane palette entries
-static inline void x68k_vidcon_set_gp_color(uint8_t index, uint16_t val)
+static inline void x68k_vidcon_set_gp_color(uint16_t index, uint16_t val)
 {
 	volatile uint16_t *p = (volatile uint16_t *)0xE82000;
 	p += index;
@@ -87,7 +87,7 @@ static inline void x68k_vidcon_set_gp_color(uint8_t index, uint16_t val)
 }
 
 // Text plane color entries
-static inline void x68k_vidcon_set_text_color(uint8_t index, uint16_t val)
+static inline void x68k_vidcon_set_text_color(uint16_t index, uint16_t val)
 {
 	volatile uint16_t *p = (volatile uint16_t *)0xE82200;
 	p += index;
@@ -95,7 +95,7 @@ static inline void x68k_vidcon_set_text_color(uint8_t index, uint16_t val)
 }
 
 // Sprite palette entries
-static inline void x68k_vidcon_set_pcg_color(uint8_t index, uint16_t val)
+static inline void x68k_vidcon_set_pcg_color(uint16_t index, uint16_t val)
 {
 	volatile uint16_t *p = (volatile uint16_t *)0xE82200;
 	p += index;
