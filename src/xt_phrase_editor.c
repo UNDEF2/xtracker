@@ -14,6 +14,7 @@ void xt_phrase_editor_init(XtPhraseEditor *p)
 	memset(p, 0, sizeof(*p));
 	p->state = EDITOR_NORMAL;
 	p->visible_channels = 7;
+	p->octave = 3;
 }
 
 // ============================================================================
@@ -231,7 +232,7 @@ static const XtKeyNotePairing note_lookup[] =
 	{XT_KEY_SPACE, XT_NOTE_NONE, 0},
 	{XT_KEY_DEL, XT_NOTE_NONE, 0},
 
-	{XT_KEY_Z, XT_NOTE_C, -1},
+	{XT_KEY_Z, XT_NOTE_C, 0},
 	{XT_KEY_S, XT_NOTE_CS, 0},
 	{XT_KEY_X, XT_NOTE_D, 0},
 	{XT_KEY_D, XT_NOTE_DS, 0},
@@ -243,11 +244,11 @@ static const XtKeyNotePairing note_lookup[] =
 	{XT_KEY_N, XT_NOTE_A, 0},
 	{XT_KEY_J, XT_NOTE_AS, 0},
 	{XT_KEY_M, XT_NOTE_B, 0},
-	{XT_KEY_COMMA, XT_NOTE_C, 0},
+	{XT_KEY_COMMA, XT_NOTE_C, 1},
 	{XT_KEY_L, XT_NOTE_CS, 1},
 	{XT_KEY_PERIOD, XT_NOTE_CS, 1},
 
-	{XT_KEY_Q, XT_NOTE_C, 0},
+	{XT_KEY_Q, XT_NOTE_C, 1},
 	{XT_KEY_2, XT_NOTE_CS, 1},
 	{XT_KEY_W, XT_NOTE_D, 1},
 	{XT_KEY_3, XT_NOTE_DS, 1},
@@ -260,7 +261,7 @@ static const XtKeyNotePairing note_lookup[] =
 	{XT_KEY_7, XT_NOTE_AS, 1},
 	{XT_KEY_U, XT_NOTE_B, 1},
 
-	{XT_KEY_I, XT_NOTE_C, 1},
+	{XT_KEY_I, XT_NOTE_C, 2},
 	{XT_KEY_9, XT_NOTE_CS, 2},
 	{XT_KEY_O, XT_NOTE_D, 2},
 	{XT_KEY_0, XT_NOTE_DS, 2},

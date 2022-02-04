@@ -14,7 +14,7 @@ static inline void xt_read_cell_cmd(Xt *xt, XtFmChannelState *fm_state,
 		default:
 			// TODO: Print an error, probably
 			break;
-			
+
 		case XT_CMD_TL_OP0:
 			fm_state->instrument.reg_60_tl[0] = 0x7F;
 			break;
@@ -117,7 +117,6 @@ static inline void xt_read_cell_data(const Xt *xt, XtFmChannelState *fm_state,
 	fm_state->instrument = xt->track.instruments[cell->inst];
 
 
-	
 	if (cell->note == XT_NOTE_OFF)
 	{
 		fm_state->key_state = KEY_STATE_OFF;
@@ -132,9 +131,12 @@ static inline void xt_read_cell_data(const Xt *xt, XtFmChannelState *fm_state,
 	}
 	else
 	{
-		fm_state->target_pitch.octave = (cell->note & XT_NOTE_OCTAVE_MASK) >> 4;
-		fm_state->target_pitch.note = (cell->note & XT_NOTE_TONE_MASK) - 1;
-		fm_state->target_pitch.fraction = fm_state->tune;
+		// convert {octave, note} to pitch number
+		// effectively a multiply by 12 since we started *16
+		uint16_t pnum = 3*((cell->note & XT_NOTE_OCTAVE_MASK) >> 2);
+		// subtract off the offset applied when editing the note data
+		pnum += (cell->note & XT_NOTE_TONE_MASK) - 1;
+		fm_state->target_pitch = (pnum << 6) | fm_state->tune;
 		fm_state->key_state = KEY_STATE_ON_PENDING;
 		fm_state->key_on_delay_count = 0;
 	}
@@ -204,6 +206,9 @@ static inline void xt_playback_counters(Xt *xt)
 	}
 }
 
+// TODO: initialize at compile time?
+static uint8_t pitch_table[8*12];
+
 void xt_init(Xt *xt)
 {
 	memset(xt, 0, sizeof(*xt));
@@ -211,6 +216,14 @@ void xt_init(Xt *xt)
 	// Set default settings.
 	xt->config.row_highlight[0] = 4;
 	xt->config.row_highlight[1] = 16;
+
+	// populate pitch table
+	uint16_t pnum = 0;
+	for (uint16_t i = 0; i < ARRAYSIZE(pitch_table); i++)
+	{
+		pitch_table[i] = pnum++;
+		if((pnum & 3) == 3) pnum++;
+	}
 }
 
 void xt_poll(Xt *xt)
@@ -251,10 +264,22 @@ void xt_poll(Xt *xt)
 		{
 			// TODO: Slide towards target pitch at portamento speed.
 		}
-		
-		fm_state->reg_30_cache = fm_state->current_pitch.fraction;
-		fm_state->reg_28_cache = fm_state->current_pitch.note |
-		                         (fm_state->current_pitch.octave << 4);
+
+		// compensate for 4MHz OPM
+		int16_t pnum = (int16_t)fm_state->current_pitch + OPM_CLOCK_ADJUST;
+		// compensate for note offset
+		pnum -= (1 << 6);
+		if (pnum < 0) pnum = 0;
+		uint8_t kf = pnum << 2;
+		uint8_t kc_idx = pnum >> 6;
+		if (kc_idx >= ARRAYSIZE(pitch_table))
+		{
+			kc_idx = ARRAYSIZE(pitch_table) - 1;
+			kf = 0xFC; // max out KF
+		}
+		uint8_t kc = pitch_table[kc_idx];
+		fm_state->reg_30_cache = kf;
+		fm_state->reg_28_cache = kc;
 
 		// TODO: Add vibrato to the pitch register caches (not applied to the
 		// pitch data itself)
