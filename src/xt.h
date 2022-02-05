@@ -41,8 +41,8 @@ typedef struct XtFmChannelState
 	XtMod mod_vibrato;
 	XtMod mod_tremolo;
 
-	XtFmPitch current_pitch;  // Set at the time a note is played.
-	XtFmPitch target_pitch;  // This is what is sent to the register.
+	uint16_t current_pitch;  // Set at the time a note is played.
+	uint16_t target_pitch;  // This is what is sent to the register.
 
 	// Pitch patch information calculated after processing pitch.
 	uint8_t reg_28_cache;

@@ -16,12 +16,17 @@ CFLAGS := -std=c99 -O2 -fshort-enums -fomit-frame-pointer \
 # properly point them to the correct locations.
 CFLAGS += -Wno-array-bounds -Wno-stringop-overflow
 
+# TODO: array-bounds and stringop-overflow are bugged on GCC 11.2.0
+CFLAGS += -Wno-array-bounds -Wno-stringop-overflow
+
 AS:= human68k-gcc
 ASFLAGS := $(CFLAGS)
 ASFLAGS += -Wa,-I$(SRCDIR) -Wa,-I$(OBJDIR)
 
 LDFLAGS := -Wl,-q,-Map=$(APPNAME).map
 
+# TODO: use GCC's automatic deps generation?
+SOURCES_H := $(shell find ./$(SRCDIR)/ -type f -name '*.h')
 SOURCES_ASM := $(shell find ./$(SRCDIR)/ -type f -name '*.s')
 SOURCES_C := $(shell find ./$(SRCDIR)/ -type f -name '*.c')
 RESOURCES := $(shell find ./$(RESDIR)/ -type f -name '*.rc')
@@ -77,12 +82,12 @@ mo_image.mos: $(OUTDIR)/$(APPNAME).X
 image: mo_image.mos
 	sudo dd if=mo_image.mos of=$(TARGET_DEV) bs=512 status=progress
 
-$(OBJDIR)/%.o: %.c
+$(OBJDIR)/%.o: %.c $(SOURCES_H)
 	@mkdir -p $(OBJDIR)/$(<D)
 	@bash -c 'printf "\t\e[96m[  C  ]\e[0m $<\n"'
 	@$(CC) -c $(CFLAGS) $< -o $@
 
-$(OBJDIR)/%.o: %.s
+$(OBJDIR)/%.o: %.s $(SOURCES_H)
 	@mkdir -p $(OBJDIR)/$(<D)
 	@bash -c 'printf "\t\e[95m[ ASM ]\e[0m $<\n"'
 	@$(CC) -c $(CFLAGS) $< -o $@

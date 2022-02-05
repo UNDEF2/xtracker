@@ -59,19 +59,19 @@ typedef enum XtNote
 {
 	XT_NOTE_NONE = 0x0,
 
-	// Main notes. These align to OPM note values when 1 is subtracted.
-	XT_NOTE_CS   = OPM_NOTE_CS + 1,
-	XT_NOTE_D    = OPM_NOTE_D + 1,
-	XT_NOTE_DS   = OPM_NOTE_DS + 1,
-	XT_NOTE_E    = OPM_NOTE_E + 1,
-	XT_NOTE_F    = OPM_NOTE_F + 1,
-	XT_NOTE_FS   = OPM_NOTE_FS + 1,
-	XT_NOTE_G    = OPM_NOTE_G + 1,
-	XT_NOTE_GS   = OPM_NOTE_GS + 1,
-	XT_NOTE_A    = OPM_NOTE_A + 1,
-	XT_NOTE_AS   = OPM_NOTE_AS + 1,
-	XT_NOTE_B    = OPM_NOTE_B + 1,
-	XT_NOTE_C    = OPM_NOTE_C + 1,
+	// Main notes.
+	XT_NOTE_C    = 0x1,
+	XT_NOTE_CS   = 0x2,
+	XT_NOTE_D    = 0x3,
+	XT_NOTE_DS   = 0x4,
+	XT_NOTE_E    = 0x5,
+	XT_NOTE_F    = 0x6,
+	XT_NOTE_FS   = 0x7,
+	XT_NOTE_G    = 0x8,
+	XT_NOTE_GS   = 0x9,
+	XT_NOTE_A    = 0xA,
+	XT_NOTE_AS   = 0xB,
+	XT_NOTE_B    = 0xC,
 
 	XT_NOTE_OFF = 0xFE,
 	XT_NOTE_CUT = 0xFF,

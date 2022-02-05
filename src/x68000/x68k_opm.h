@@ -9,6 +9,8 @@
 #define OPM_DATA (volatile uint8_t *)(OPM_BASE + 3)
 #define OPM_STATUS (volatile uint8_t *)(OPM_BASE + 3)
 
+#define OPM_CLOCK_ADJUST ((-2 << 6) + 5)
+
 #define x68k_opm_status() (*OPM_STATUS)
 
 #define x68k_opm_busy() ((*OPM_STATUS) & 0x80)
