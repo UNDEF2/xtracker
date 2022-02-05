@@ -8,7 +8,7 @@
 #include "x68000/x68k_vidcon.h"
 
 // Labels starting at XT_NOTE_NONE.
-static const uint8_t s_note_labels_mappings[13][3] =
+static const uint8_t s_note_label_mappings[13][3] =
 {
 	{0x08, 0x0F, 0x00},  // 0x00 no note
 	{0x72, 0x7B, 0x00},  // 0x01 C
