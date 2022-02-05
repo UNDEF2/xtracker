@@ -3,7 +3,7 @@
 #include "common.h"
 #include "x68000/x68k_crtc.h"
 
-static const int16_t plane_w = 512;
+static const int16_t s_plane_w = 512;
 
 static uint8_t s_cgfont[8192];
 
@@ -25,7 +25,7 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 	static const int16_t cell_w = 6;
 	static const int16_t cell_h = 8;
 	volatile uint16_t *dest = GVRAM_BASE + (plane * 0x40000) +
-	                          x + (y * plane_w);
+	                          x + (y * s_plane_w);
 	char c;
 	while ((c = (*s)))
 	{
@@ -45,10 +45,10 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 					*dest_local = 0;
 				}
 			}
-			dest += plane_w;
+			dest += s_plane_w;
 			src += cell_h;
 		}
-		dest -= plane_w * cell_h;
+		dest -= s_plane_w * cell_h;
 		dest += cell_w;
 		s++;
 	};
@@ -58,7 +58,7 @@ void cgbox(int16_t plane, uint16_t color, int16_t x1, int16_t y1,
            int16_t x2, int16_t y2)
 {
 	volatile uint16_t *dest = GVRAM_BASE + (plane * 0x40000) +
-	                          x1 + (y1 * plane_w);
+	                          x1 + (y1 * s_plane_w);
 
 	for (int16_t y = y1; y < y2; y++)
 	{
@@ -66,6 +66,6 @@ void cgbox(int16_t plane, uint16_t color, int16_t x1, int16_t y1,
 		{
 			dest[x] = color;
 		}
-		dest += plane_w;
+		dest += s_plane_w;
 	}
 }

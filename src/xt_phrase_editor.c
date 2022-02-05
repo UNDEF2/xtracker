@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define ROLL_SCROLL_MAGNITUDE 8
 
@@ -269,13 +270,13 @@ static const XtKeyNotePairing note_lookup[] =
 	{XT_KEY_A, XT_NOTE_CUT, 0},
 };
 
-// Keys to perform entry on the note column.
-static inline uint16_t handle_note_entry(XtPhraseEditor *p, XtTrack *t,
+// Keys to perform entry on the note column. Returns true if a note was entered.
+static inline bool handle_note_entry(XtPhraseEditor *p, XtTrack *t,
                                          XtKeyEvent e)
 {
-	if (e.modifiers & XT_KEY_MOD_SHIFT) return 0;
+	if (e.modifiers & XT_KEY_MOD_SHIFT) return false;
 	// TODO: Entry for PCM channels.
-	if (p->column >= 8) return 0;
+	if (p->column >= 8) return false;
 
 	for (uint16_t i = 0; i < ARRAYSIZE(note_lookup); i++)
 	{
@@ -290,10 +291,10 @@ static inline uint16_t handle_note_entry(XtPhraseEditor *p, XtTrack *t,
 			if (m->note >= XT_NOTE_CUT || m->note == XT_NOTE_NONE) octave = 0;
 			cell->note = m->note | (octave << 4);
 			cell->inst = p->instrument;
-			return 1;
+			return true;
 		}
 	}
-	return 0;
+	return false;
 }
 
 // ============================================================================
@@ -335,7 +336,7 @@ static const XtKeyNumberPairing number_lookup[] =
 	{XT_KEY_NUMPAD_9, 9},
 };
 
-static inline uint16_t handle_number_entry(XtPhraseEditor *p, XtTrack *t,
+static inline bool handle_number_entry(XtPhraseEditor *p, XtTrack *t,
                                            XtKeyEvent e)
 {
 	for (uint16_t i = 0; i < ARRAYSIZE(number_lookup); i++)
@@ -348,29 +349,29 @@ static inline uint16_t handle_number_entry(XtPhraseEditor *p, XtTrack *t,
 			switch (p->sub_pos)
 			{
 				default:
-					return 0;
+					return false;
 				case CURSOR_SUBPOS_INSTRUMENT_HIGH:
 					cell->inst &= 0x0F;
 					cell->inst |= m->value << 4;
-					return 1;
+					return true;
 				case CURSOR_SUBPOS_INSTRUMENT_LOW:
 					cell->inst &= 0xF0;
 					cell->inst |= m->value;
-					return 1;
+					return true;
 				// TODO: Make this automagically handle a variable number of
 				// command columns.
 				case CURSOR_SUBPOS_ARG1_HIGH:
 					cell->cmd[0].arg &= 0x0F;
 					cell->cmd[0].arg |= m->value << 4;
-					return 1;
+					return true;
 				case CURSOR_SUBPOS_ARG1_LOW:
 					cell->cmd[0].arg &= 0xF0;
 					cell->cmd[0].arg |= m->value;
-					return 1;
+					return true;
 			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 // ============================================================================
@@ -422,7 +423,7 @@ static const XtKeyCommandPairing command_lookup[] =
 	{XT_KEY_X, XT_CMD_CUT_DELAY},
 };
 
-static inline uint16_t handle_command_entry(XtPhraseEditor *p, XtTrack *t,
+static inline bool handle_command_entry(XtPhraseEditor *p, XtTrack *t,
                                             XtKeyEvent e)
 {
 	for (uint16_t i = 0; i < ARRAYSIZE(command_lookup); i++)
@@ -435,14 +436,14 @@ static inline uint16_t handle_command_entry(XtPhraseEditor *p, XtTrack *t,
 			switch (p->sub_pos)
 			{
 				default:
-					return 0;
+					return false;
 				case CURSOR_SUBPOS_CMD1:
 					cell->cmd[0].cmd = m->value;
-					return 1;
+					return true;
 			}
 		}
 	}
-	return 0;
+	return false;
 }
 
 // ============================================================================

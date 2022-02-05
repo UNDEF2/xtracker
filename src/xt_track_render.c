@@ -7,19 +7,8 @@
 #include "x68000/x68k_pcg.h"
 #include "x68000/x68k_vidcon.h"
 
-
-// These strings look odd because they align to tiles in letter positions
-// for non-letter things (e.g. '-'. '#').
-// h = '#'
-// i = '=' (left)
-// j = '^' (left)
-// m = '^' (right)
-// k = '-' (left)
-// l = '-' (right)
-// n = '=' (right)
-
 // Labels starting at XT_NOTE_NONE.
-static const uint8_t note_labels[0x10][3] =
+static const uint8_t s_note_label_mappings[0x10][3] =
 {
 	{0x08, 0x0F, 0x00},  // 0x00 no note
 	{0x72, 0x7C, 0x00},  // 0x01 C#
@@ -138,8 +127,8 @@ static void draw_fm_column(XtPhrase *phrase, uint16_t x, uint16_t height,
 		{
 			// Note
 			const uint8_t note = cell->note & XT_NOTE_TONE_MASK;
-			*nt0++ = PCG_ATTR(0, 0, pal, note_labels[note][0]);
-			*nt0++ = PCG_ATTR(0, 0, pal, note_labels[note][1]);
+			*nt0++ = PCG_ATTR(0, 0, pal, s_note_label_mappings[note][0]);
+			*nt0++ = PCG_ATTR(0, 0, pal, s_note_label_mappings[note][1]);
 
 			// Octave
 			const uint8_t octave = cell->note >> 4;
@@ -195,7 +184,6 @@ void xt_track_renderer_repaint_channel(XtTrackRenderer *r, uint16_t channel)
 void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 {
 	int phrase_x_pos = 0;
-
 
 	const int highlight_changed = (r->row_highlight[0] != xt->config.row_highlight[0] ||
 	                               r->row_highlight[1] != xt->config.row_highlight[1]);

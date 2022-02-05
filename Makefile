@@ -2,7 +2,7 @@
 OUTDIR := out
 APPNAME := XT
 
-SRCDIR := src/
+SRCDIR := src
 OBJDIR := obj
 
 OBJCOPY := human68k-objcopy
@@ -10,15 +10,17 @@ OBJCOPY := human68k-objcopy
 CC := human68k-gcc
 CFLAGS := -std=c99 -O2 -fshort-enums -fomit-frame-pointer \
           -Wall -Werror \
-          -I$(HUMAN68K)/human68k/include \
-          -Isrc
+          -I$(SRCDIR)
+
+# TODO: Define X68000 memory map as extern uint8_t arrays and have linker
+# properly point them to the correct locations.
+CFLAGS += -Wno-array-bounds -Wno-stringop-overflow
 
 AS:= human68k-gcc
 ASFLAGS := $(CFLAGS)
 ASFLAGS += -Wa,-I$(SRCDIR) -Wa,-I$(OBJDIR)
 
-LDFLAGS := -Wl,-q,-Map=$(APPNAME).map \
-           -L$(HUMAN68K)/human68k/lib
+LDFLAGS := -Wl,-q,-Map=$(APPNAME).map
 
 SOURCES_ASM := $(shell find ./$(SRCDIR)/ -type f -name '*.s')
 SOURCES_C := $(shell find ./$(SRCDIR)/ -type f -name '*.c')
@@ -59,8 +61,8 @@ upload: $(OUTDIR)/$(APPNAME).X
 	sudo mount $(TARGET_DEV) target_mount
 	sudo rm -rf target_mount/*
 	sudo cp -r $(OUTDIR)/* target_mount/
-	sudo umount $(TARGET_DEV)
 	sync
+	sudo umount $(TARGET_DEV)
 
 mo_image.mos: $(OUTDIR)/$(APPNAME).X
 	mkdir -p mo_image

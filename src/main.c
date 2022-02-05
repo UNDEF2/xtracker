@@ -22,12 +22,13 @@
 #include "xt_display.h"
 #include "xt_palette.h"
 
-static Xt xt;
-static XtArrangeRenderer arrange_renderer;
-static XtTrackRenderer track_renderer;
-static XtKeys keys;
-static XtPhraseEditor phrase_editor;
-static XtDisplay display;
+static XtKeys s_keys;
+static XtDisplay s_display;
+
+static Xt s_xt;
+static XtArrangeRenderer s_arrange_renderer;
+static XtTrackRenderer s_track_renderer;
+static XtPhraseEditor s_phrase_editor;
 
 static int16_t s_old_crt_mode;
 
@@ -98,16 +99,11 @@ void draw_mock_ui(void)
 	draw_fnc_label(2, "META");
 	draw_fnc_label(3, "INSTR");
 	draw_fnc_label(4, "ARRANGE");
-	draw_fnc_label(5, "");
-	draw_fnc_label(6, "");
-	draw_fnc_label(7, "");
-	draw_fnc_label(8, "");
-	draw_fnc_label(9, "");
 }
 
 int video_init(void)
 {
-	xt_display_init(&display, display_modes, ARRAYSIZE(display_modes));
+	xt_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
 	xt_irq_init();
 
 	// Clear PCG nametables and data
@@ -155,7 +151,7 @@ int video_init(void)
 
 void set_demo_instruments(void)
 {
-	XtInstrument *ins = &xt.track.instruments[0];
+	XtInstrument *ins = &s_xt.track.instruments[0];
 
 	// The bass from Private Eye (Daiginjou)
 	ins->reg_20_pan_fl_con = 0xFB;
@@ -225,24 +221,24 @@ void set_demo_instruments(void)
 
 void set_demo_meta(void)
 {
-	xt.track.num_phrases = 16;
+	s_xt.track.num_phrases = 16;
 
-	for (int i = 0; i < xt.track.num_phrases; i++)
+	for (int i = 0; i < s_xt.track.num_phrases; i++)
 	{
 		for (int c = 0; c < 8; c++)
 		{
-			xt.track.frames[i].phrase_id[c] = i;
+			s_xt.track.frames[i].phrase_id[c] = i;
 		}
 	}
 
-	xt.track.num_frames = 64;
-	xt.track.num_instruments = 1;
+	s_xt.track.num_frames = 64;
+	s_xt.track.num_instruments = 1;
 
-	xt.track.ticks_per_row = 6;
-	xt.track.timer_period = 0xABCD;
+	s_xt.track.ticks_per_row = 6;
+	s_xt.track.timer_period = 0xABCD;
 
-	xt.track.phrase_length = 32;
-	xt.track.loop_point = 1;
+	s_xt.track.phrase_length = 32;
+	s_xt.track.loop_point = 1;
 }
 
 static int main_init(void)
@@ -312,12 +308,12 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	xt_init(&xt);
+	xt_init(&s_xt);
 	x68k_wait_for_vsync();
-	xt_track_renderer_init(&track_renderer);
-	xt_arrange_renderer_init(&arrange_renderer);
-	xt_keys_init(&keys);
-	xt_phrase_editor_init(&phrase_editor);
+	xt_track_renderer_init(&s_track_renderer);
+	xt_arrange_renderer_init(&s_arrange_renderer);
+	xt_keys_init(&s_keys);
+	xt_phrase_editor_init(&s_phrase_editor);
 
 	// Set up xt with some test data
 	set_demo_meta();
@@ -330,9 +326,9 @@ int main(int argc, char **argv)
 	XtUiFocus focus = 0;
 
 	// The main loop.
-	while (!xt_keys_pressed(&keys, XT_KEY_ESC))
+	while (!xt_keys_pressed(&s_keys, XT_KEY_ESC))
 	{
-		xt_keys_poll(&keys);
+		xt_keys_poll(&s_keys);
 
 		XtKeyEvent key_event;
 
@@ -343,49 +339,49 @@ int main(int argc, char **argv)
 			case XT_UI_FOCUS_PATTERN:
 				// TODO: tick the playback engine and register updates based
 				// on the OPM timer.
-				xt_poll(&xt);
+				xt_poll(&s_xt);
 
 				// TODO: This is a hack, if this works it needs to be done properly
-				const XtDisplayMode *mode = xt_display_get_mode(&display);
+				const XtDisplayMode *mode = xt_display_get_mode(&s_display);
 				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
-				track_renderer.visible_channels = visible_channels;
-				phrase_editor.visible_channels = visible_channels;
-				while (xt_keys_event_pop(&keys, &key_event))
+				s_track_renderer.visible_channels = visible_channels;
+				s_phrase_editor.visible_channels = visible_channels;
+				while (xt_keys_event_pop(&s_keys, &key_event))
 				{
-					xt_display_on_key(&display, key_event);
-					if (!xt.playing)
+					xt_display_on_key(&s_display, key_event);
+					if (!s_xt.playing)
 					{
-						xt_phrase_editor_on_key(&phrase_editor, &xt.track, key_event);
+						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
 					}
 				}
 	
-				if (xt.playing)
+				if (s_xt.playing)
 				{
-					if (xt_keys_pressed(&keys, XT_KEY_CR))
+					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
 					{
-						xt_stop_playing(&xt);
-						xt.playing = 0;
+						xt_stop_playing(&s_xt);
+						s_xt.playing = 0;
 					}
 					// Focus the "camera" down a little bit to make room for the HUD.
-					const int16_t yscroll = (xt.current_phrase_row - 16) * 8;
-					xt_track_renderer_set_camera(&track_renderer, xt_phrase_editor_get_cam_x(&phrase_editor), yscroll);
-					xt_track_renderer_tick(&track_renderer, &xt, xt.current_frame);
-					xt_arrange_renderer_tick(&arrange_renderer, &xt.track, xt.current_frame, -1);
+					const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
+					xt_track_renderer_set_camera(&s_track_renderer, xt_phrase_editor_get_cam_x(&s_phrase_editor), yscroll);
+					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_xt.current_frame);
+					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_xt.current_frame, -1);
 				}
 				else
 				{
-					if (xt_keys_pressed(&keys, XT_KEY_CR))
+					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
 					{
 						// Playback position is taken from the editor.
-						xt_start_playing(&xt, phrase_editor.frame,
-						                 xt_keys_held(&keys, XT_KEY_SHIFT));
-						xt.playing = 1;
+						xt_start_playing(&s_xt, s_phrase_editor.frame,
+						                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
+						s_xt.playing = 1;
 					}
-					xt_phrase_editor_update_renderer(&phrase_editor, &track_renderer);
-					xt_track_renderer_tick(&track_renderer, &xt, phrase_editor.frame);
-					xt_arrange_renderer_tick(&arrange_renderer, &xt.track, phrase_editor.frame, phrase_editor.column);
+					xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
+					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_phrase_editor.frame);
+					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
 				}
-				xt_update_opm_registers(&xt);
+				xt_update_opm_registers(&s_xt);
 				break;
 		}
 
