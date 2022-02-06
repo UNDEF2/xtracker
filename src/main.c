@@ -31,9 +31,17 @@ static XtArrangeRenderer s_arrange_renderer;
 static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
 
+// console control save area
+static int s_conctrl_scroll;
+static int s_conctrl_mode;
+
+// function key display save area
+// size taken from FNCKEY documentation
+static char s_fnckey_buf[712];
+
 static int16_t s_old_crt_mode;
 
-// Base configuration for high x low resolution scan, and 2 x 256-color 
+// Base configuration for high x low resolution scan, and 2 x 256-color
 // CG planes.
 #define CRT_FLAGS_BASE 0x0101
 
@@ -58,7 +66,7 @@ static const XtDisplayMode mode_15k =
 // 512 x 512 @ 55Hz (line doubled)
 static const XtDisplayMode mode_31k =
 // Enables line doubler.
-#define CRT_FLAGS CRT_FLAGS_BASE | 0x0010
+#define CRT_FLAGS (CRT_FLAGS_BASE | 0x0010)
 {
 	{
 		0x005B, 0x0008, 0x0011, 0x0051,
@@ -264,6 +272,13 @@ void set_demo_meta(void)
 
 static int main_init(void)
 {
+	// save function key legend
+	_dos_fnckeygt(0, s_fnckey_buf);
+
+	// save console config
+	s_conctrl_mode = _dos_c_width(-1);
+	s_conctrl_scroll = _dos_c_fnkmod(-1);
+
 	// Disable some Human68k stuff we won't be using
 	_iocs_g_clr_on();
 	_iocs_b_curoff();
@@ -303,7 +318,14 @@ static void main_shutdown(void)
 	_iocs_tgusemd(0, 0);
 	_iocs_tgusemd(1, 0);
 
-	_dos_kflushio(0xFF);
+	// restore console mode
+	_dos_c_width(s_conctrl_mode);
+	// restore console scrolling
+	_dos_c_fnkmod(s_conctrl_scroll);
+	// restore function key legend
+	_dos_fnckeyst(0, s_fnckey_buf);
+	// flush kb buffer
+	_dos_kflushio(0);
 }
 
 // TODO: xt_ui.c
@@ -375,7 +397,7 @@ int main(int argc, char **argv)
 						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
 					}
 				}
-	
+
 				if (s_xt.playing)
 				{
 					if (xt_keys_pressed(&s_keys, XT_KEY_CR))

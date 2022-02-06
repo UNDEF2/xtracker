@@ -1,4 +1,5 @@
-out/*.x
+out
+obj
 src/*.o
 *.map
 *.x
