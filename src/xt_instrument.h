@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "xt_types.h"
+
 typedef enum XtChannelType
 {
 	XT_CHANNEL_OPM,
@@ -31,6 +33,8 @@ typedef struct XtAdpcmPatch
 typedef struct XtInstrument
 {
 	XtChannelType type;
+	int16_t valid;
+	char name[32];
 	union
 	{
 		XtOpmPatch opm;
@@ -42,7 +46,7 @@ typedef struct XtInstrument
 
 typedef struct XtInstrumentFileRecord
 {
-	uint8_t header_magic[8];  // "XTRACKER"
+	uint8_t header_magic[8];  // "XTrackIn"
 	XtInstrument instrument_data;
 
 	// Array of indeterminate length containing ADPCM sample data.
@@ -50,8 +54,7 @@ typedef struct XtInstrumentFileRecord
 	uint8_t adpcm_data[0];
 } XtInstrumentFileRecord;
 
-// Loads an XtInstrument from a file.
-// Returns 0 on failure, 1 on success.
-int16_t xt_instrument_load_from_file(FILE *f, XtInstrument *out);
+XtResult xt_instrument_load_from_file(FILE *f, XtInstrument *out);
+XtResult xt_instrument_write_to_file(const XtInstrument *in, FILE *f);
 
 #endif  // _XT_INSTRUMENT_H

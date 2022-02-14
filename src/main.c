@@ -157,6 +157,7 @@ void set_demo_instruments(void)
 
 	// The bass from Private Eye (Daiginjou)
 	ins->type = XT_CHANNEL_OPM;
+	ins->valid = 1;
 	ins->opm.pan_fl_con = 0xFB;
 	ins->opm.pms_ams = 0;
 
@@ -191,6 +192,7 @@ void set_demo_instruments(void)
 	ins++;
 
 	ins->type = XT_CHANNEL_OPM;
+	ins->valid = 1;
 	ins->opm.pan_fl_con = 0xC0 | (5 << 3) | 4;
 	ins->opm.pms_ams = 0;
 
