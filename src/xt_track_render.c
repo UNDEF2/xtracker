@@ -67,8 +67,8 @@ static void draw_empty_column(uint16_t x, uint16_t height,
 	}
 }
 
-static void draw_fm_column(XtPhrase *phrase, uint16_t x, uint16_t height,
-                           int16_t back_spacing, int16_t front_spacing)
+static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
+                            int16_t back_spacing, int16_t front_spacing)
 {
 	int16_t acc[2] = {0, 0};
 	static const uint8_t normal_pal = 1;
@@ -164,10 +164,10 @@ static void draw_fm_column(XtPhrase *phrase, uint16_t x, uint16_t height,
 void xt_track_renderer_init(XtTrackRenderer *r)
 {
 	memset(r, 0, sizeof(*r));
-	for (int i = 0; i < ARRAYSIZE(r->channel); i++)
+	for (int i = 0; i < ARRAYSIZE(r->chan); i++)
 	{
-		r->channel[i].last_phrase_id = -1;
-		r->channel[i].dirty = 1;
+		r->chan[i].last_phrase = NULL;
+		r->chan[i].dirty = 1;
 	}
 
 	r->visible_channels = 7;
@@ -175,12 +175,14 @@ void xt_track_renderer_init(XtTrackRenderer *r)
 
 void xt_track_renderer_repaint_channel(XtTrackRenderer *r, uint16_t channel)
 {
-	r->channel[channel].dirty = 1;
+	r->chan[channel].dirty = 1;
 }
 
 void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 {
-	int phrase_x_pos = 0;
+	_Static_assert(ARRAYSIZE(r->chan) == ARRAYSIZE(xt->chan));
+
+	int draw_x = 0;
 
 	const int highlight_changed = (r->row_highlight[0] != xt->config.row_highlight[0] ||
 	                               r->row_highlight[1] != xt->config.row_highlight[1]);
@@ -191,16 +193,16 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 		r->row_highlight[1] = xt->config.row_highlight[1];
 	}
 
-	for (int16_t i = 0; i < ARRAYSIZE(r->channel); i++)
+	for (int16_t i = 0; i < ARRAYSIZE(r->chan); i++)
 	{
-		XtChannelRenderState *chan = &r->channel[i];
-		const uint16_t phrase_id = xt_track_get_phrase_number_for_frame(&xt->track, i, frame);
+		XtChannelRenderState *chan = &r->chan[i];
+		const XtPhrase *phrase = xt_track_get_phrase(&xt->track, i, frame);
 
 		// Check if a channel's phrase ID has changed, and mark the channel as
 		// dirty if so.
-		if (phrase_id != chan->last_phrase_id)
+		if (phrase != chan->last_phrase)
 		{
-			chan->last_phrase_id = phrase_id;
+			chan->last_phrase = phrase;
 			chan->dirty = 1;
 		}
 
@@ -213,27 +215,28 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 		if (chan->dirty && chan->active)
 		{
 			chan->dirty = 0;
-			if (i < XT_FM_CHANNEL_COUNT)
+
+			const int16_t hl[2] = {r->row_highlight[0], r->row_highlight[1]};
+			const int16_t len = xt->track.phrase_length;
+
+			switch (xt->chan[i].type)
 			{
-				draw_fm_column(&xt->track.phrases[phrase_id],
-				               phrase_x_pos, xt->track.phrase_length,
-				               r->row_highlight[0], r->row_highlight[1]);
-			}
-			else if (i < (XT_FM_CHANNEL_COUNT + XT_PCM_CHANNEL_COUNT))
-			{
-				draw_empty_column(phrase_x_pos, xt->track.phrase_length,
-				                  r->row_highlight[0], r->row_highlight[1]);
-				// TODO: Draw APCM phrases
-			}
-			else
-			{
-				draw_empty_column(phrase_x_pos, xt->track.phrase_length,
-				                  r->row_highlight[0], r->row_highlight[1]);
-				// TODO: Draw MIDI phrases???
+				default:
+					draw_empty_column(draw_x, len, hl[0], hl[1]);
+					break;
+
+				case XT_CHANNEL_OPM:
+					draw_opm_column(phrase, draw_x, len, hl[0], hl[1]);
+
+					break;
+				case XT_CHANNEL_ADPCM:
+					// TODO
+					draw_empty_column(draw_x, len, hl[0], hl[1]);
+					break;
 			}
 		}
 
-		phrase_x_pos += XT_RENDER_CELL_WIDTH_TILES;
+		draw_x += XT_RENDER_CELL_WIDTH_TILES;
 	}
 
 	// Move the planes around for the camera.
@@ -251,14 +254,14 @@ void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y)
 	                                      XT_RENDER_CELL_WIDTH_TILES);
 	const int16_t right_visible_channel = left_visible_channel + r->visible_channels;
 
-	for (int16_t i = 0; i < ARRAYSIZE(r->channel); i++)
+	for (int16_t i = 0; i < ARRAYSIZE(r->chan); i++)
 	{
-		const int16_t prev = r->channel[i].active;
+		const int16_t prev = r->chan[i].active;
 		const int16_t new = (i >= left_visible_channel && i < right_visible_channel);
-		r->channel[i].active = new;
+		r->chan[i].active = new;
 		if (new && prev != new)
 		{
-			r->channel[i].dirty = 1;
+			r->chan[i].dirty = 1;
 		}
 	}
 }

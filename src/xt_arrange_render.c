@@ -5,13 +5,11 @@
 #include "common.h"
 #include "xt_palette.h"
 
-static const int16_t kdraw_x = 304;
-static const int16_t kdraw_y = 4;
 static const int16_t krow_spacing = 8;
 static const int16_t kcol_spacing = 16;
 
 // Set up the XtArrange struct for its first render and further use.
-void xt_arrange_renderer_init(XtArrangeRenderer *a)
+void xt_arrange_renderer_init(XtArrangeRenderer *a, const XtTrack *t)
 {
 	memset(a, 0, sizeof(*a));
 	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
@@ -20,6 +18,12 @@ void xt_arrange_renderer_init(XtArrangeRenderer *a)
 		{
 			a->frames[i].phrase_id[j] = -1;
 		}
+	}
+
+	if (t)
+	{
+		a->draw_x = 512 - (kcol_spacing * (2 + ARRAYSIZE(t->channel_data)));
+		a->draw_y = 4;
 	}
 }
 
@@ -38,12 +42,13 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 		{
 			"\x04", "\x03", "\x03", "\x03", "\x03", "\x03", "\x06"
 		};
-		int16_t y = kdraw_y;
-		static const int16_t left_x = kdraw_x;
-		static const int16_t right_x = kdraw_x +
-		                               (kcol_spacing * ARRAYSIZE(a->frames[0].phrase_id)) + 2;
+		int16_t y = a->draw_y;
+		const int16_t left_x = a->draw_x;
+		const int16_t right_x = left_x +
+		                        (kcol_spacing * ARRAYSIZE(a->frames[0].phrase_id)) + 2;
 		cgprint(0, XT_PAL_UI_BORDER,"Arrangement", left_x + 6, y);
 		y += krow_spacing;
+
 		for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
 		{
 			cgprint(0, XT_PAL_UI_BORDER, left_mapping[i], left_x, y);
@@ -63,7 +68,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 		a->column = col;
 	}
 
-	int16_t cell_y = kdraw_y + krow_spacing;
+	int16_t cell_y = a->draw_y + krow_spacing;
 
 	// Look for data that needs an update.
 	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
@@ -76,7 +81,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			ref = &t->frames[ref_frame_id];
 		}
 
-		int16_t cell_x = kdraw_x + 6;
+		int16_t cell_x = a->draw_x + 6;
 
 		// now compare the reference frame to what we've already drawn.
 		for (int16_t j = 0; j < ARRAYSIZE(current->phrase_id); j++)
@@ -131,7 +136,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 // Mark all frames and the border as needing a redraw.
 void xt_arrange_renderer_redraw(XtArrangeRenderer *a)
 {
-	xt_arrange_renderer_init(a);
+	xt_arrange_renderer_init(a, NULL);
 }
 
 
