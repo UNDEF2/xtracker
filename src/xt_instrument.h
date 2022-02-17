@@ -30,7 +30,7 @@ typedef struct XtAdpcmPatch
 } XtAdpcmPatch;
 
 // Representation of an XtInstrument in memory.
-typedef struct XtInstrument
+typedef struct __attribute__((packed)) XtInstrument
 {
 	XtChannelType type;
 	int16_t valid;
@@ -44,14 +44,18 @@ typedef struct XtInstrument
 	// TODO: Vibrato / pitch mod params, etc.
 } XtInstrument;
 
-typedef struct XtInstrumentFileRecord
+typedef struct __attribute__((packed)) XtInstrumentFileRecord
 {
 	uint8_t header_magic[8];  // "XTrackIn"
 	XtInstrument instrument_data;
 
 	// Array of indeterminate length containing ADPCM sample data.
-	uint32_t adpcm_data_length;
-	uint8_t adpcm_data[0];
+	int16_t adpcm_data_embedded;
+	union
+	{
+		uint32_t adpcm_data_length;
+		uint8_t adpcm_data[0];
+	}
 } XtInstrumentFileRecord;
 
 XtResult xt_instrument_load_from_file(FILE *f, XtInstrument *out);
