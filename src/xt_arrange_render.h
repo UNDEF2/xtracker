@@ -28,11 +28,13 @@ typedef struct XtArrangeRenderer
 
 	int16_t row;  // The current row to be selected. Must always be valid.
 	int16_t column;  // The current column to highlight.
+
+	int16_t draw_x, draw_y;
 	
 } XtArrangeRenderer;
 
 // Set up the XtArrange struct for its first render and further use.
-void xt_arrange_renderer_init(XtArrangeRenderer *a);
+void xt_arrange_renderer_init(XtArrangeRenderer *a, const XtTrack *t);
 
 // Draw the arrangement table as-needed based on track data and the provided
 // navigation position. Pass -1 to the row or column parameters to not update

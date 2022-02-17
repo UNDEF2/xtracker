@@ -4,14 +4,13 @@
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
 #define XT_PHRASES_PER_CHANNEL 256
-#define XT_FM_CHANNEL_COUNT 8
-#define XT_PCM_CHANNEL_COUNT 4
-#define XT_TOTAL_CHANNEL_COUNT (XT_FM_CHANNEL_COUNT + XT_PCM_CHANNEL_COUNT)
+#define XT_TOTAL_CHANNEL_COUNT 16
 #define XT_FRAME_COUNT 128
 #define XT_INSTRUMENT_COUNT 64
 #define XT_SAMPLE_COUNT 64
 
 #include "x68000/x68k_opm.h"
+#include "xt_instrument.h"
 
 typedef enum XtCmd
 {
@@ -113,17 +112,13 @@ typedef struct XtSample
 	uint8_t *data;
 } XtSample;
 
-typedef struct XtInstrument
+typedef struct XtTrackChannelData
 {
-	uint8_t reg_20_pan_fl_con;  // Rch (1), Lch(1), FL(3), CON(3)
-	uint8_t reg_38_pms_ams;     // null (1), PMS(3), null(2), AMS(2)
-	uint8_t reg_40_dt1_mul[4];  // null (1), DT1(3), MUL(4)
-	uint8_t reg_60_tl[4];       // null(1), TL(7)
-	uint8_t reg_80_ks_ar[4];    // ks(2), null(1), AR(5)
-	uint8_t reg_A0_ame_d1r[4];  // ame(1), null(2), D1R(5)
-	uint8_t reg_C0_dt2_d2r[4];  // dt2(2), null(1), D2R(5)
-	uint8_t reg_E0_d1l_rr[4];   // D1L(4), RR(4)
-} XtInstrument;
+	// TODO: Dynamic phrase allocation within channel
+	XtChannelType type;
+	int16_t voice_number;  // Hardware voice number for relevant chip.
+	XtPhrase phrases[XT_PHRASES_PER_CHANNEL];
+} XtTrackChannelData;
 
 // One whole song in memory.
 typedef struct XtTrack
@@ -136,13 +131,16 @@ typedef struct XtTrack
 	// A "phrase" is a single collection of pattern data - notes, etc. Phrases
 	// are separated per-channel.
 	int16_t num_phrases;
-	XtPhrase phrases[XT_TOTAL_CHANNEL_COUNT * XT_PHRASES_PER_CHANNEL];
+
+	// TODO: Dynamic channel count.
+	XtTrackChannelData channel_data[XT_TOTAL_CHANNEL_COUNT];
 	// Instruments are patch configurations / ADPCM / MIDI mappings.
 	int16_t num_instruments;
 	XtInstrument instruments[XT_INSTRUMENT_COUNT];
 	// ADPCM storage, which can be referenced by an ADPCM instrument.
 	int16_t num_samples;
 	XtSample samples[XT_SAMPLE_COUNT];
+
 
 	int16_t ticks_per_row;  // Current ticks per row (can change during play)
 	int16_t timer_period;  // Period of ticks.
@@ -153,7 +151,6 @@ typedef struct XtTrack
 	char memo[1024];
 } XtTrack;
 
-uint16_t xt_track_get_phrase_number_for_frame(XtTrack *t, uint16_t channel,
-                                              uint16_t frame);
+XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);
 
 #endif  // _XT_TRACK_H

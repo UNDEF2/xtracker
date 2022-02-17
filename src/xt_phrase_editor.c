@@ -9,12 +9,15 @@
 
 #define ROLL_SCROLL_MAGNITUDE 8
 
-void xt_phrase_editor_init(XtPhraseEditor *p)
+void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t)
 {
 	memset(p, 0, sizeof(*p));
 	p->state = EDITOR_NORMAL;
 	p->visible_channels = 7;
 	p->octave = 3;
+
+	// TODO: Respect dynamic channel data
+	p->total_channels = ARRAYSIZE(t->channel_data);
 }
 
 // ============================================================================
@@ -79,7 +82,8 @@ static void cursor_up(XtPhraseEditor *p, const XtTrack *t)
 static void cursor_column_right(XtPhraseEditor *p, const XtTrack *t)
 {
 	p->column++;
-	if (p->column >= XT_TOTAL_CHANNEL_COUNT) p->column = 0;
+	// TODO: Respect dynamic channel count
+	if (p->column >= ARRAYSIZE(t->channel_data)) p->column = 0;
 }
 
 static void cursor_right(XtPhraseEditor *p, const XtTrack *t)
@@ -94,7 +98,7 @@ static void cursor_right(XtPhraseEditor *p, const XtTrack *t)
 
 static void cursor_column_left(XtPhraseEditor *p, const XtTrack *t)
 {
-	if (p->column <= 0) p->column = XT_TOTAL_CHANNEL_COUNT - 1;
+	if (p->column <= 0) p->column = ARRAYSIZE(t->channel_data) - 1;
 	else p->column--;
 }
 
@@ -273,7 +277,7 @@ static const XtKeyNotePairing note_lookup[] =
 
 // Keys to perform entry on the note column. Returns true if a note was entered.
 static inline bool handle_note_entry(XtPhraseEditor *p, XtTrack *t,
-                                         XtKeyEvent e)
+                                     XtKeyEvent e)
 {
 	if (e.modifiers & XT_KEY_MOD_SHIFT) return false;
 	// TODO: Entry for PCM channels.
@@ -284,7 +288,7 @@ static inline bool handle_note_entry(XtPhraseEditor *p, XtTrack *t,
 		const XtKeyNotePairing *m = &note_lookup[i];
 		if (e.name == m->key)
 		{
-			XtPhrase *phrase = &t->phrases[xt_track_get_phrase_number_for_frame(t, p->column, p->frame)];
+			XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
 			XtCell *cell = &phrase->cells[p->row];
 			int8_t octave = p->octave + m->octave_offset;
 			if (octave < 0) octave = 0;
@@ -345,7 +349,7 @@ static inline bool handle_number_entry(XtPhraseEditor *p, XtTrack *t,
 		const XtKeyNumberPairing *m = &number_lookup[i];
 		if (e.name == m->key)
 		{
-			XtPhrase *phrase = &t->phrases[xt_track_get_phrase_number_for_frame(t, p->column, p->frame)];
+			XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
 			XtCell *cell = &phrase->cells[p->row];
 			switch (p->sub_pos)
 			{
@@ -386,7 +390,7 @@ typedef struct XtKeyCommandPairing
 
 static const XtKeyCommandPairing command_lookup[] =
 {
-	{XT_KEY_DEL, '\0'},
+	{XT_KEY_DEL, XT_CMD_NONE},
 
 	{XT_KEY_0, XT_CMD_TL_OP0},
 	{XT_KEY_1, XT_CMD_TL_OP1},
@@ -432,7 +436,7 @@ static inline bool handle_command_entry(XtPhraseEditor *p, XtTrack *t,
 		const XtKeyCommandPairing *m = &command_lookup[i];
 		if (e.name == m->key)
 		{
-			XtPhrase *phrase = &t->phrases[xt_track_get_phrase_number_for_frame(t, p->column, p->frame)];
+			XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
 			XtCell *cell = &phrase->cells[p->row];
 			switch (p->sub_pos)
 			{

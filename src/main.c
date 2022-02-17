@@ -21,6 +21,7 @@
 #include "xt_irq.h"
 #include "xt_display.h"
 #include "xt_palette.h"
+#include "xt_instrument.h"
 
 static XtKeys s_keys;
 static XtDisplay s_display;
@@ -152,71 +153,76 @@ int video_init(void)
 void set_demo_instruments(void)
 {
 	XtInstrument *ins = &s_xt.track.instruments[0];
+	
 
 	// The bass from Private Eye (Daiginjou)
-	ins->reg_20_pan_fl_con = 0xFB;
-	ins->reg_38_pms_ams = 0;
+	ins->type = XT_CHANNEL_OPM;
+	ins->valid = 1;
+	ins->opm.pan_fl_con = 0xFB;
+	ins->opm.pms_ams = 0;
 
-	ins->reg_40_dt1_mul[0] = 8;
-	ins->reg_60_tl[0] = 30;
-	ins->reg_80_ks_ar[0] = 27;
-	ins->reg_A0_ame_d1r[0] = 14;
-	ins->reg_C0_dt2_d2r[0] = 0;
-	ins->reg_E0_d1l_rr[0] = (3 << 4) | 10;
+	ins->opm.dt1_mul[0] = 8;
+	ins->opm.tl[0] = 30;
+	ins->opm.ks_ar[0] = 27;
+	ins->opm.ame_d1r[0] = 14;
+	ins->opm.dt2_d2r[0] = 0;
+	ins->opm.d1l_rr[0] = (3 << 4) | 10;
 
-	ins->reg_40_dt1_mul[1] = 2;
-	ins->reg_60_tl[1] = 45;
-	ins->reg_80_ks_ar[1] = 31;
-	ins->reg_A0_ame_d1r[1] = 12;
-	ins->reg_C0_dt2_d2r[1] = 0;
-	ins->reg_E0_d1l_rr[1] = (3 << 4) | 10;
+	ins->opm.dt1_mul[1] = 2;
+	ins->opm.tl[1] = 45;
+	ins->opm.ks_ar[1] = 31;
+	ins->opm.ame_d1r[1] = 12;
+	ins->opm.dt2_d2r[1] = 0;
+	ins->opm.d1l_rr[1] = (3 << 4) | 10;
 
-	ins->reg_40_dt1_mul[2] = 0;
-	ins->reg_60_tl[2] = 15;
-	ins->reg_80_ks_ar[2] = 31;
-	ins->reg_A0_ame_d1r[2] = 18;
-	ins->reg_C0_dt2_d2r[2] = 0;
-	ins->reg_E0_d1l_rr[2] = (5 << 4) | 10;
+	ins->opm.dt1_mul[2] = 0;
+	ins->opm.tl[2] = 15;
+	ins->opm.ks_ar[2] = 31;
+	ins->opm.ame_d1r[2] = 18;
+	ins->opm.dt2_d2r[2] = 0;
+	ins->opm.d1l_rr[2] = (5 << 4) | 10;
 
-	ins->reg_40_dt1_mul[3] = 0;
-	ins->reg_60_tl[3] = 6;
-	ins->reg_80_ks_ar[3] = 31;
-	ins->reg_A0_ame_d1r[3] = 5;
-	ins->reg_C0_dt2_d2r[3] = 5;
-	ins->reg_E0_d1l_rr[3] = (14 << 4) | 15;
+	ins->opm.dt1_mul[3] = 0;
+	ins->opm.tl[3] = 6;
+	ins->opm.ks_ar[3] = 31;
+	ins->opm.ame_d1r[3] = 5;
+	ins->opm.dt2_d2r[3] = 5;
+	ins->opm.d1l_rr[3] = (14 << 4) | 15;
 
 	ins++;
 
-	ins->reg_20_pan_fl_con = 0xC0 | (5 << 3) | 4;
-	ins->reg_38_pms_ams = 0;
+	ins->type = XT_CHANNEL_OPM;
+	ins->valid = 1;
+	ins->opm.pan_fl_con = 0xC0 | (5 << 3) | 4;
+	ins->opm.pms_ams = 0;
 
-	ins->reg_40_dt1_mul[0] = 1;
-	ins->reg_60_tl[0] = 11;
-	ins->reg_80_ks_ar[0] = 30;
-	ins->reg_A0_ame_d1r[0] = 8;
-	ins->reg_C0_dt2_d2r[0] = 0;
-	ins->reg_E0_d1l_rr[0] = (4 << 4) | 15;
+	ins->opm.dt1_mul[0] = 1;
+	ins->opm.tl[0] = 11;
+	ins->opm.ks_ar[0] = 30;
+	ins->opm.ame_d1r[0] = 8;
+	ins->opm.dt2_d2r[0] = 0;
+	ins->opm.d1l_rr[0] = (4 << 4) | 15;
 
-	ins->reg_40_dt1_mul[1] = 1;
-	ins->reg_60_tl[1] = 10;
-	ins->reg_80_ks_ar[1] = 30;
-	ins->reg_A0_ame_d1r[1] = 6;
-	ins->reg_C0_dt2_d2r[1] = 0;
-	ins->reg_E0_d1l_rr[1] = (4 << 4) | 15;
+	ins->opm.dt1_mul[1] = 1;
+	ins->opm.tl[1] = 10;
+	ins->opm.ks_ar[1] = 30;
+	ins->opm.ame_d1r[1] = 6;
+	ins->opm.dt2_d2r[1] = 0;
+	ins->opm.d1l_rr[1] = (4 << 4) | 15;
 
-	ins->reg_40_dt1_mul[2] = 0;
-	ins->reg_60_tl[2] = 22;
-	ins->reg_80_ks_ar[2] = 30;
-	ins->reg_A0_ame_d1r[2] = 11;
-	ins->reg_C0_dt2_d2r[2] = 0;
-	ins->reg_E0_d1l_rr[2] = (10 << 4) | 15;
+	ins->opm.dt1_mul[2] = 0;
+	ins->opm.tl[2] = 22;
+	ins->opm.ks_ar[2] = 30;
+	ins->opm.ame_d1r[2] = 11;
+	ins->opm.dt2_d2r[2] = 0;
+	ins->opm.d1l_rr[2] = (10 << 4) | 15;
 
-	ins->reg_40_dt1_mul[3] = 0;
-	ins->reg_60_tl[3] = 8;
-	ins->reg_80_ks_ar[3] = 30;
-	ins->reg_A0_ame_d1r[3] = 3;
-	ins->reg_C0_dt2_d2r[3] = 0;
-	ins->reg_E0_d1l_rr[3] = (0 << 4) | 15;
+	ins->opm.dt1_mul[3] = 0;
+	ins->opm.tl[3] = 8;
+	ins->opm.ks_ar[3] = 30;
+	ins->opm.ame_d1r[3] = 3;
+	ins->opm.dt2_d2r[3] = 0;
+	ins->opm.d1l_rr[3] = (0 << 4) | 15;
 }
 
 void set_demo_meta(void)
@@ -239,6 +245,21 @@ void set_demo_meta(void)
 
 	s_xt.track.phrase_length = 32;
 	s_xt.track.loop_point = 1;
+
+	for (int16_t i = 0; i < ARRAYSIZE(s_xt.track.channel_data); i++)
+	{
+		XtTrackChannelData *data = &s_xt.track.channel_data[i];
+		if (i < 8)
+		{
+			data->type = XT_CHANNEL_OPM;
+			data->voice_number = i;
+		}
+		else
+		{
+			data->type = XT_CHANNEL_ADPCM;
+			data->voice_number = i;
+		}
+	}
 }
 
 static int main_init(void)
@@ -311,9 +332,9 @@ int main(int argc, char **argv)
 	xt_init(&s_xt);
 	x68k_wait_for_vsync();
 	xt_track_renderer_init(&s_track_renderer);
-	xt_arrange_renderer_init(&s_arrange_renderer);
+	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
 	xt_keys_init(&s_keys);
-	xt_phrase_editor_init(&s_phrase_editor);
+	xt_phrase_editor_init(&s_phrase_editor, &s_xt.track);
 
 	// Set up xt with some test data
 	set_demo_meta();

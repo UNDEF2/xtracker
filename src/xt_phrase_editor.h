@@ -47,11 +47,12 @@ typedef struct XtPhraseEditor
 	int16_t cam_column;
 
 	int16_t visible_channels;
+	int16_t total_channels;
 
 	int16_t base_cursor_line_drawn;
 } XtPhraseEditor;
 
-void xt_phrase_editor_init(XtPhraseEditor *p);
+void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t);
 
 void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e);
 

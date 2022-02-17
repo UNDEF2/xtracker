@@ -8,14 +8,12 @@ OBJDIR := obj
 OBJCOPY := human68k-objcopy
 
 CC := human68k-gcc
-CFLAGS := -std=c99 -O2 -fshort-enums -fomit-frame-pointer \
+CFLAGS := -std=c11 -O2 -fshort-enums -fomit-frame-pointer \
           -Wall -Werror \
           -I$(SRCDIR)
 
 # TODO: Define X68000 memory map as extern uint8_t arrays and have linker
 # properly point them to the correct locations.
-CFLAGS += -Wno-array-bounds -Wno-stringop-overflow
-
 # TODO: array-bounds and stringop-overflow are bugged on GCC 11.2.0
 CFLAGS += -Wno-array-bounds -Wno-stringop-overflow
 
