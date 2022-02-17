@@ -32,7 +32,7 @@ OBJECTS_C := $(addprefix $(OBJDIR)/, $(SOURCES_C:.c=.o))
 OBJECTS_ASM := $(addprefix $(OBJDIR)/, $(SOURCES_ASM:.s=.o))
 
 # Physical target information.
-TARGET_DEV := /dev/disk/by-id/*x68k*DEVDISK*
+TARGET_DEV := /dev/disk/by-id/usb-x68k_DEVDISK_000000000000-0:1
 TARGET_SEEK := 0
 
 .PHONY: all clean resources $(OUTDIR)/$(APPNAME).X
@@ -67,7 +67,7 @@ upload: $(OUTDIR)/$(APPNAME).X
 	sync
 	sudo umount $(TARGET_DEV)
 
-mo_image.mos: $(OUTDIR)/$(APPNAME).X
+mo_image.mos: $(OUTDIR)/$(APPNAME).X resources
 	mkdir -p mo_image
 	unzip empty_mo.zip
 	mv empty_mo.mos mo_image.mos
