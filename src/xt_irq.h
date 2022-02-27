@@ -7,7 +7,7 @@
 extern volatile uint16_t g_xt_vbl_pending;
 
 // Register the XT VBlank IRQ.
-void xt_irq_init(void);
+int xt_irq_init(void);
 
 // Wait for vblank.
 void xt_irq_wait_vbl(void);

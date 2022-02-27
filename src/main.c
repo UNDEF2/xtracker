@@ -4,11 +4,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "x68000/x68k_pcg.h"
-#include "x68000/x68k_joy.h"
 #include "x68000/x68k_crtc.h"
-#include "x68000/x68k_vidcon.h"
+#include "x68000/x68k_irq.h"
+#include "x68000/x68k_joy.h"
+#include "x68000/x68k_pcg.h"
 #include "x68000/x68k_vbl.h"
+#include "x68000/x68k_vidcon.h"
 
 #include "common.h"
 #include "cgprint.h"
@@ -113,7 +114,10 @@ void draw_mock_ui(void)
 int video_init(void)
 {
 	xt_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
-	xt_irq_init();
+	if (!xt_irq_init()) {
+		fprintf(stderr, "Error: Could not init IRQs.\n");
+		return 0;
+	}
 
 	// Clear PCG nametables and data
 	x68k_vbl_wait_for_vblank();
@@ -161,7 +165,6 @@ int video_init(void)
 void set_demo_instruments(void)
 {
 	XtInstrument *ins = &s_xt.track.instruments[0];
-	
 
 	// The bass from Private Eye (Daiginjou)
 	ins->type = XT_CHANNEL_OPM;
@@ -249,7 +252,7 @@ void set_demo_meta(void)
 	s_xt.track.num_instruments = 1;
 
 	s_xt.track.ticks_per_row = 6;
-	s_xt.track.timer_period = 0xABCD;
+	s_xt.track.timer_period = 24;
 
 	s_xt.track.phrase_length = 32;
 	s_xt.track.loop_point = 1;
@@ -281,8 +284,6 @@ static int main_init(void)
 
 	// Disable some Human68k stuff we won't be using
 	_iocs_g_clr_on();
-	_iocs_b_curoff();
-	_iocs_ms_curof();
 	_iocs_skey_mod(0, 0, 0);
 
 	// Store the old video mode so we can restore it on exit.
@@ -302,6 +303,8 @@ static int main_init(void)
 	}
 
 	_iocs_b_clr_al();
+	_iocs_b_curoff();
+	_iocs_ms_curof();
 
 	xt_palette_init();
 
@@ -312,20 +315,19 @@ static void main_shutdown(void)
 {
 	_iocs_g_clr_on();
 	_iocs_skey_mod(-1, 0, 0);
-	_iocs_b_curon();
 	_iocs_crtmod(s_old_crt_mode);
 
 	_iocs_tgusemd(0, 0);
 	_iocs_tgusemd(1, 0);
 
-	// restore console mode
+	// restore console
 	_dos_c_width(s_conctrl_mode);
-	// restore console scrolling
 	_dos_c_fnkmod(s_conctrl_scroll);
-	// restore function key legend
 	_dos_fnckeyst(0, s_fnckey_buf);
 	// flush kb buffer
 	_dos_kflushio(0);
+
+	_iocs_b_curon();
 }
 
 // TODO: xt_ui.c
@@ -341,6 +343,17 @@ typedef enum XtUiFocus
 	XT_UI_FOCUS_ADPCM_FILE,
 	// TODO: Instrument file dialogue, ADPCM file dialogue, ADPCM mapping
 } XtUiFocus;
+
+
+// TODO: put this somewhere else?
+void ISR g_irq_opm(void) {
+	// reset timer A flag
+	x68k_opm_set_timer_flags(X68K_OPM_TIMER_FLAG_F_RESET_A |
+	                         X68K_OPM_TIMER_FLAG_IRQ_EN_A  |
+	                         X68K_OPM_TIMER_FLAG_LOAD_A);
+	xt_poll(&s_xt);
+	xt_update_opm_registers(&s_xt);
+}
 
 int main(int argc, char **argv)
 {
@@ -368,6 +381,12 @@ int main(int argc, char **argv)
 
 	XtUiFocus focus = 0;
 
+	// TODO: reload if tempo changed
+	x68k_opm_set_clka_period(s_xt.timer_period);
+	x68k_opm_set_timer_flags(X68K_OPM_TIMER_FLAG_F_RESET_A |
+	                         X68K_OPM_TIMER_FLAG_IRQ_EN_A  |
+	                         X68K_OPM_TIMER_FLAG_LOAD_A);
+
 	// The main loop.
 	while (!xt_keys_pressed(&s_keys, XT_KEY_ESC))
 	{
@@ -380,13 +399,10 @@ int main(int argc, char **argv)
 			default:
 				break;
 			case XT_UI_FOCUS_PATTERN:
-				// TODO: tick the playback engine and register updates based
-				// on the OPM timer.
-				xt_poll(&s_xt);
-
 				// TODO: This is a hack, if this works it needs to be done properly
-				const XtDisplayMode *mode = xt_display_get_mode(&s_display);
-				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
+				// const XtDisplayMode *mode = xt_display_get_mode(&s_display);
+				// const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
+				const int visible_channels = (768/8)/8;
 				s_track_renderer.visible_channels = visible_channels;
 				s_phrase_editor.visible_channels = visible_channels;
 				while (xt_keys_event_pop(&s_keys, &key_event))
@@ -424,7 +440,6 @@ int main(int argc, char **argv)
 					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_phrase_editor.frame);
 					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
 				}
-				xt_update_opm_registers(&s_xt);
 				break;
 		}
 
