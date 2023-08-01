@@ -35,7 +35,7 @@ typedef enum XtOpmKeyCommand
 typedef struct XtOpmChannelState
 {
 	XtOpmPatch patch;
-	XtPan pan_overlay;
+	XBOpmPan pan;
 
 	XtMod mod_vibrato;
 	XtMod mod_tremolo;

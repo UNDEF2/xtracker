@@ -61,10 +61,10 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_PAN:
-			if (arg == 0x11) opm_state->pan_overlay = XT_PAN_BOTH;
-			if (arg == 0x01) opm_state->pan_overlay = XT_PAN_RIGHT;
-			if (arg == 0x10) opm_state->pan_overlay = XT_PAN_LEFT;
-			else opm_state->pan_overlay = XT_PAN_NONE;
+			if (arg == 0x11) opm_state->pan = OPM_PAN_BOTH;
+			if (arg == 0x01) opm_state->pan = OPM_PAN_RIGHT;
+			if (arg == 0x10) opm_state->pan = OPM_PAN_LEFT;
+			else opm_state->pan = OPM_PAN_NONE;
 			break;
 
 		case XT_CMD_TUNE:
@@ -238,7 +238,7 @@ void xt_init(Xt *xt)
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
 		xt->chan[i].type = (i < 8) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
-		xt->chan[i].opm.pan_overlay = XT_PAN_BOTH;
+		xt->chan[i].opm.pan = OPM_PAN_BOTH;
 	}
 
 	// TODO: Init/allocate channels and their types based on the track info.
@@ -337,6 +337,7 @@ void xt_update_opm_registers(Xt *xt)
 		// Key state
 		if (opm_state->key_command == KEY_COMMAND_ON)
 		{
+			xb_opm_set_key_on(i, 0x0);
 			xb_opm_set_key_on(i, 0xF);
 			opm_state->key_command = KEY_COMMAND_NONE;
 		}
@@ -356,7 +357,7 @@ void xt_update_opm_registers(Xt *xt)
 
 		xb_opm_set_kc(i, opm_state->reg_kc_data);
 		xb_opm_set_key_fraction(i, opm_state->reg_kf_data);
-		xb_opm_set_lr_fl_con(i, opm_state->pan_overlay, patch->fl, patch->con);
+		xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
 		xb_opm_set_pms_ams(i, patch->pms, patch->ams);
 		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
 		{
@@ -379,7 +380,7 @@ static inline void cut_all_opm_sound(void)
 		xb_opm_set_key_on(i, 0);
 		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
 		{
-			xb_opm_set_tl(j, 0, 0x7F);
+			xb_opm_set_tl(i, j, 0x7F);
 		}
 	}
 	xb_opm_commit();
@@ -399,6 +400,11 @@ void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 		xt->current_frame = xt->track.num_frames - 1;
 	}
 	xt->current_phrase_row = 0;
+	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
+	{
+		XtChannelState *chan = &xt->chan[i];
+		chan->opm.pan = OPM_PAN_BOTH;
+	}
 }
 
 void xt_stop_playing(Xt *xt)
