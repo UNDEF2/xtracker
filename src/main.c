@@ -4,32 +4,38 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "x68000/x68k_pcg.h"
-#include "x68000/x68k_joy.h"
-#include "x68000/x68k_crtc.h"
-#include "x68000/x68k_vidcon.h"
-#include "x68000/x68k_vbl.h"
+#include <stdbool.h>
+
+#include "xbase/pcg.h"
+#include "xbase/crtc.h"
+#include "xbase/memmap.h"
+#include "xbase/vidcon.h"
+#include "xbase/mfp.h"
+#include "xbase/util/display.h"
 
 #include "common.h"
 #include "cgprint.h"
-#include "irq.h"
+#include "ui/fnlabels.h"
 #include "xt.h"
 #include "xt_arrange_render.h"
 #include "xt_track_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
 #include "xt_irq.h"
-#include "xt_display.h"
 #include "xt_palette.h"
 #include "xt_instrument.h"
 
-static XtKeys s_keys;
-static XtDisplay s_display;
+static XBDisplay s_display;
 
 static Xt s_xt;
+static XtKeys s_keys;
 static XtArrangeRenderer s_arrange_renderer;
 static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
+
+//
+// Video Configuration
+//
 
 static int16_t s_old_crt_mode;
 
@@ -38,7 +44,7 @@ static int16_t s_old_crt_mode;
 #define CRT_FLAGS_BASE 0x0101
 
 // 512 x 256 @ 55Hz
-static const XtDisplayMode mode_15k =
+static const XBDisplayMode mode_15k =
 #define CRT_FLAGS CRT_FLAGS_BASE
 {
 	{
@@ -56,7 +62,7 @@ static const XtDisplayMode mode_15k =
 };
 
 // 512 x 512 @ 55Hz (line doubled)
-static const XtDisplayMode mode_31k =
+static const XBDisplayMode mode_31k =
 // Enables line doubler.
 #define CRT_FLAGS CRT_FLAGS_BASE | 0x0010
 {
@@ -74,46 +80,35 @@ static const XtDisplayMode mode_31k =
 #undef CRT_FLAGS
 };
 
-static const XtDisplayMode *display_modes[] =
+static const XBDisplayMode *display_modes[] =
 {
-	&mode_15k,
 	&mode_31k,
+	&mode_15k,
 };
-
-static void draw_fnc_label(int16_t i, const char *s)
-{
-	static const int16_t box_w = 1 + 6 * 7;
-	static const int16_t box_h = 9;
-	static const int16_t box_x_margin = 6;
-	static const int16_t box_y = 256 - box_h - 1;
-
-	int16_t box_x = box_x_margin + (i * (box_w + box_x_margin)) + ((i >= 5) ? (2 * box_x_margin) : 0);
-	cgbox(0, 15, box_x, box_y, box_x + box_w, box_y + box_h);
-	cgprint(0, 1, s, box_x + 1, box_y + 1);
-}
 
 void draw_mock_ui(void)
 {
 	// Draw bottom legend
-	draw_fnc_label(0, "FILE");
-	draw_fnc_label(1, "PATTERN");
-	draw_fnc_label(2, "META");
-	draw_fnc_label(3, "INSTR");
-	draw_fnc_label(4, "ARRANGE");
+	ui_fnlabel_set(0, "FILE");
+	ui_fnlabel_set(1, "PATTERN");
+	ui_fnlabel_set(2, "META");
+	ui_fnlabel_set(3, "INSTR");
+	ui_fnlabel_set(4, "ARRANGE");
 }
 
-int video_init(void)
+bool video_init(void)
 {
-	xt_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
+	xb_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
+
 	xt_irq_init();
 
 	// Clear PCG nametables and data
-	x68k_vbl_wait_for_vblank();
-	x68k_pcg_set_disp_en(0);
-	memset((void *)PCG_TILE_DATA, 0, 0x4000);
-	memset((void *)PCG_SPR_TABLE, 0, 0x400);
-	memset((void *)PCG_BG0_NAME, 0, 0x2000);
-	memset((void *)PCG_BG1_NAME, 0, 0x2000);
+//	while (xb_mfp_read_gpdr() & XB_MFP_GPDR_VDISP) {}
+	xb_pcg_set_disp_en(0);
+	memset((void *)XB_PCG_TILE_DATA, 0, 0x4000);
+	memset((void *)XB_PCG_SPR_TABLE, 0, 0x400);
+	memset((void *)XB_PCG_BG0_NAME, 0, 0x2000);
+	memset((void *)XB_PCG_BG1_NAME, 0, 0x2000);
 
 	// Load font tileset
 	FILE *f;
@@ -121,9 +116,9 @@ int video_init(void)
 	if (!f)
 	{
 		fprintf(stderr, "Error: Could not load PCG data.\n");
-		return 0;
+		return false;
 	}
-	volatile uint16_t *pcg_data = (volatile uint16_t *)PCG_TILE_DATA;
+	volatile uint16_t *pcg_data = (volatile uint16_t *)XB_PCG_TILE_DATA;
 	while (!feof(f))
 	{
 		uint16_t word = 0;
@@ -133,96 +128,69 @@ int video_init(void)
 	}
 	fclose(f);
 
-	x68k_pcg_set_bg0_txsel(0);
-	x68k_pcg_set_bg1_txsel(1);
-	x68k_pcg_set_bg0_enable(1);
-	x68k_pcg_set_bg1_enable(1);
+	xb_pcg_set_bg0_txsel(0);
+	xb_pcg_set_bg1_txsel(1);
+	xb_pcg_set_bg0_enable(1);
+	xb_pcg_set_bg1_enable(1);
 
-	x68k_pcg_set_bg0_xscroll(0);
-	x68k_pcg_set_bg1_xscroll(0);
+	xb_pcg_set_bg0_xscroll(0);
+	xb_pcg_set_bg1_xscroll(0);
 
-	x68k_pcg_set_bg0_yscroll(0);
-	x68k_pcg_set_bg1_yscroll(0);
+	xb_pcg_set_bg0_yscroll(0);
+	xb_pcg_set_bg1_yscroll(0);
 
-	x68k_vbl_wait_for_vblank();
+//	while (xb_mfp_read_gpdr() & XB_MFP_GPDR_VDISP) {}
 
-	x68k_pcg_set_disp_en(1);
-	return 1;
+	xb_pcg_set_disp_en(1);
+	return true;
 }
+
+//
+// Test Code
+//
 
 void set_demo_instruments(void)
 {
 	XtInstrument *ins = &s_xt.track.instruments[0];
-	
 
 	// The bass from Private Eye (Daiginjou)
+	memset(ins, 0, sizeof(*ins));
 	ins->type = XT_CHANNEL_OPM;
-	ins->valid = 1;
-	ins->opm.pan_fl_con = 0xFB;
-	ins->opm.pms_ams = 0;
+	ins->valid = true;
+	ins->opm.fl = 7;
+	ins->opm.con = 3;
 
-	ins->opm.dt1_mul[0] = 8;
+	ins->opm.mul[0] = 8;
 	ins->opm.tl[0] = 30;
-	ins->opm.ks_ar[0] = 27;
-	ins->opm.ame_d1r[0] = 14;
-	ins->opm.dt2_d2r[0] = 0;
-	ins->opm.d1l_rr[0] = (3 << 4) | 10;
+	ins->opm.ar[0] = 27;
+	ins->opm.d1r[0] = 14;
+	ins->opm.d1l[0] = 3;
+	ins->opm.rr[0] = 10;
 
-	ins->opm.dt1_mul[1] = 2;
+	ins->opm.mul[1] = 2;
 	ins->opm.tl[1] = 45;
-	ins->opm.ks_ar[1] = 31;
-	ins->opm.ame_d1r[1] = 12;
-	ins->opm.dt2_d2r[1] = 0;
-	ins->opm.d1l_rr[1] = (3 << 4) | 10;
+	ins->opm.ar[1] = 31;
+	ins->opm.d1r[1] = 12;
+	ins->opm.d1l[1] = 3;
+	ins->opm.rr[1] = 10;
 
-	ins->opm.dt1_mul[2] = 0;
+	ins->opm.mul[2] = 0;
 	ins->opm.tl[2] = 15;
-	ins->opm.ks_ar[2] = 31;
-	ins->opm.ame_d1r[2] = 18;
-	ins->opm.dt2_d2r[2] = 0;
-	ins->opm.d1l_rr[2] = (5 << 4) | 10;
+	ins->opm.ar[2] = 31;
+	ins->opm.d1r[2] = 18;
+	ins->opm.d1l[2] = 5;
+	ins->opm.rr[2] = 10;
 
-	ins->opm.dt1_mul[3] = 0;
+	ins->opm.mul[3] = 0;
 	ins->opm.tl[3] = 6;
-	ins->opm.ks_ar[3] = 31;
-	ins->opm.ame_d1r[3] = 5;
-	ins->opm.dt2_d2r[3] = 5;
-	ins->opm.d1l_rr[3] = (14 << 4) | 15;
+	ins->opm.ar[3] = 31;
+	ins->opm.d1r[3] = 5;
+	ins->opm.d2r[3] = 5;
+	ins->opm.d1l[3] = 14;
+	ins->opm.rr[3] = 15;
 
 	ins++;
-
-	ins->type = XT_CHANNEL_OPM;
-	ins->valid = 1;
-	ins->opm.pan_fl_con = 0xC0 | (5 << 3) | 4;
-	ins->opm.pms_ams = 0;
-
-	ins->opm.dt1_mul[0] = 1;
-	ins->opm.tl[0] = 11;
-	ins->opm.ks_ar[0] = 30;
-	ins->opm.ame_d1r[0] = 8;
-	ins->opm.dt2_d2r[0] = 0;
-	ins->opm.d1l_rr[0] = (4 << 4) | 15;
-
-	ins->opm.dt1_mul[1] = 1;
-	ins->opm.tl[1] = 10;
-	ins->opm.ks_ar[1] = 30;
-	ins->opm.ame_d1r[1] = 6;
-	ins->opm.dt2_d2r[1] = 0;
-	ins->opm.d1l_rr[1] = (4 << 4) | 15;
-
-	ins->opm.dt1_mul[2] = 0;
-	ins->opm.tl[2] = 22;
-	ins->opm.ks_ar[2] = 30;
-	ins->opm.ame_d1r[2] = 11;
-	ins->opm.dt2_d2r[2] = 0;
-	ins->opm.d1l_rr[2] = (10 << 4) | 15;
-
-	ins->opm.dt1_mul[3] = 0;
-	ins->opm.tl[3] = 8;
-	ins->opm.ks_ar[3] = 30;
-	ins->opm.ame_d1r[3] = 3;
-	ins->opm.dt2_d2r[3] = 0;
-	ins->opm.d1l_rr[3] = (0 << 4) | 15;
+	memset(ins, 0x21, sizeof(*ins));
 }
 
 void set_demo_meta(void)
@@ -261,6 +229,10 @@ void set_demo_meta(void)
 		}
 	}
 }
+
+//
+// Main
+//
 
 static int main_init(void)
 {
@@ -322,6 +294,11 @@ typedef enum XtUiFocus
 
 int main(int argc, char **argv)
 {
+	while (0)
+	{
+		const int chara = _dos_getchar();
+		printf("$%04X\n", chara);
+	}
 	_dos_super(0);
 
 	if (!main_init())
@@ -330,7 +307,10 @@ int main(int argc, char **argv)
 	}
 
 	xt_init(&s_xt);
-	x68k_wait_for_vsync();
+
+	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
+	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
+	xt_irq_wait_vbl();
 	xt_track_renderer_init(&s_track_renderer);
 	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
 	xt_keys_init(&s_keys);
@@ -363,25 +343,24 @@ int main(int argc, char **argv)
 				xt_poll(&s_xt);
 
 				// TODO: This is a hack, if this works it needs to be done properly
-				const XtDisplayMode *mode = xt_display_get_mode(&s_display);
+				const XBDisplayMode *mode = xb_display_get_mode(&s_display);
 				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
 				s_track_renderer.visible_channels = visible_channels;
 				s_phrase_editor.visible_channels = visible_channels;
 				while (xt_keys_event_pop(&s_keys, &key_event))
 				{
-					xt_display_on_key(&s_display, key_event);
+					if (key_event.name == XT_KEY_HELP) xb_display_cycle_mode(&s_display);
 					if (!s_xt.playing)
 					{
 						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
 					}
 				}
-	
+
 				if (s_xt.playing)
 				{
 					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
 					{
 						xt_stop_playing(&s_xt);
-						s_xt.playing = 0;
 					}
 					// Focus the "camera" down a little bit to make room for the HUD.
 					const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
@@ -393,10 +372,9 @@ int main(int argc, char **argv)
 				{
 					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
 					{
-						// Playback position is taken from the editor.
+						// playback position is taken from the editor.
 						xt_start_playing(&s_xt, s_phrase_editor.frame,
 						                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
-						s_xt.playing = 1;
 					}
 					xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
 					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_phrase_editor.frame);
@@ -406,8 +384,9 @@ int main(int argc, char **argv)
 				break;
 		}
 
-		x68k_pcg_finish_sprites();
+		xb_pcg_finish_sprites();
 		xt_irq_wait_vbl();
+
 		elapsed++;
 	}
 	xt_irq_shutdown();

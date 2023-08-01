@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "x68000/x68k_opm.h"
+#include "xbase/opm.h"
 
 static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
@@ -29,20 +29,16 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_MULT_OP0:
-			opm_state->patch.dt1_mul[0] &= 0xF0;
-			opm_state->patch.dt1_mul[0] |= arg & 0x0F;
+			opm_state->patch.mul[0] = arg;
 			break;
 		case XT_CMD_MULT_OP1:
-			opm_state->patch.dt1_mul[1] &= 0xF0;
-			opm_state->patch.dt1_mul[1] |= arg & 0x0F;
+			opm_state->patch.mul[1] = arg;
 			break;
 		case XT_CMD_MULT_OP2:
-			opm_state->patch.dt1_mul[2] &= 0xF0;
-			opm_state->patch.dt1_mul[2] |= arg & 0x0F;
+			opm_state->patch.mul[2] = arg;
 			break;
 		case XT_CMD_MULT_OP3:
-			opm_state->patch.dt1_mul[3] &= 0xF0;
-			opm_state->patch.dt1_mul[3] |= arg & 0x0F;
+			opm_state->patch.mul[3] = arg;
 			break;
 
 		case XT_CMD_AMPLITUDE:
@@ -61,14 +57,14 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_NOISE_EN:
-			xt->noise_enable = arg;
+			xt->noise_enable = arg ? true : false;
 			break;
 
 		case XT_CMD_PAN:
-			if (arg == 0x11) opm_state->reg_20_overlay = 0xC0;
-			else if (arg == 0x01) opm_state->reg_20_overlay = 0x80;
-			else if (arg == 0x10) opm_state->reg_20_overlay = 0x40;
-			else opm_state->reg_20_overlay = 0;
+			if (arg == 0x11) opm_state->pan_overlay = XT_PAN_BOTH;
+			if (arg == 0x01) opm_state->pan_overlay = XT_PAN_RIGHT;
+			if (arg == 0x10) opm_state->pan_overlay = XT_PAN_LEFT;
+			else opm_state->pan_overlay = XT_PAN_NONE;
 			break;
 
 		case XT_CMD_TUNE:
@@ -158,7 +154,7 @@ static inline void xt_read_cell_data(const Xt *xt, int16_t i,
 	}
 }
 
-static inline void xt_update_opm_key_state(XtOpmChannelState *opm_state)
+static inline void xt_update_key_state(XtOpmChannelState *opm_state)
 {
 	if (opm_state->key_on_delay_count > 0)
 	{
@@ -166,7 +162,7 @@ static inline void xt_update_opm_key_state(XtOpmChannelState *opm_state)
 	}
 
 	if (opm_state->key_on_delay_count == 0 &&
-	    opm_state->key_state == KEY_STATE_ON_PENDING)
+		opm_state->key_state == KEY_STATE_ON_PENDING)
 	{
 		opm_state->key_on_delay_count = 0;
 		opm_state->key_state = KEY_STATE_ON;
@@ -210,7 +206,7 @@ static inline void xt_playback_counters(Xt *xt)
 			{
 				if (xt->track.loop_point < 0)
 				{
-					xt->playing = 0;
+					xt->playing = false;
 					xt->current_frame = 0;
 				}
 				else
@@ -242,6 +238,7 @@ void xt_init(Xt *xt)
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
 		xt->chan[i].type = (i < 8) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
+		xt->chan[i].opm.pan_overlay = XT_PAN_BOTH;
 	}
 
 	// TODO: Init/allocate channels and their types based on the track info.
@@ -293,13 +290,13 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 		kf = 0xFC; // max out KF.
 	}
 	uint8_t kc = xt->pitch_table[kc_idx];
-	opm_state->reg_30_cache = kf;
-	opm_state->reg_28_cache = kc;
+	opm_state->reg_kf_data = kf;
+	opm_state->reg_kc_data = kc;
 
 	// TODO: Add vibrato to the pitch register caches (not applied to the
 	// pitch data itself)
 
-	xt_update_opm_key_state(opm_state);
+	xt_update_key_state(opm_state);
 }
 
 void xt_poll(Xt *xt)
@@ -327,11 +324,6 @@ void xt_poll(Xt *xt)
 	xt_playback_counters(xt);
 }
 
-static inline void opm_tx(uint8_t addr, uint8_t new_val, uint8_t old_val, uint8_t force)
-{
-	if (force || new_val != old_val) x68k_opm_write(addr, new_val);
-}
-
 void xt_update_opm_registers(Xt *xt)
 {
 	if (!xt->playing) return;
@@ -341,12 +333,11 @@ void xt_update_opm_registers(Xt *xt)
 		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
 		XtOpmChannelState *opm_state = &xt->chan[i].opm;
 		XtOpmPatch *patch = &opm_state->patch;
-		XtOpmPatch *patch_prev = &opm_state->patch_prev;
 
+		// Key state
 		if (opm_state->key_command == KEY_COMMAND_ON)
 		{
-			x68k_opm_set_key_on(i, 0x0);
-			x68k_opm_set_key_on(i, 0xF);
+			xb_opm_set_key_on(i, 0xF);
 			opm_state->key_command = KEY_COMMAND_NONE;
 		}
 		else if (opm_state->key_command == KEY_COMMAND_OFF)
@@ -354,86 +345,51 @@ void xt_update_opm_registers(Xt *xt)
 			// TODO: Remove once we have TL cache
 			if (opm_state->key_state == KEY_STATE_CUT)
 			{
-				patch->tl[0] = 0x7F;
-				patch->tl[1] = 0x7F;
-				patch->tl[2] = 0x7F;
-				patch->tl[3] = 0x7F;
+				memset(patch->tl, 0x7F, sizeof(patch->tl));
 			}
-			x68k_opm_set_key_on(i, 0x0);
+			xb_opm_set_key_on(i, 0x0);
 			opm_state->key_command = KEY_COMMAND_NONE;
 		}
 
 		// TODO: Create TL caches, and use that to apply both note cut, and
 		//       the channel amplitude settings, to the TL.
 
-		opm_tx(i + 0x28, opm_state->reg_28_cache, opm_state->reg_28_cache_prev, opm_state->cache_invalid);
-		opm_tx(i + 0x30, opm_state->reg_30_cache, opm_state->reg_30_cache_prev, opm_state->cache_invalid);
-
-		opm_tx(i + 0x20, patch->pan_fl_con | opm_state->reg_20_overlay,
-		                patch_prev->pan_fl_con | opm_state->reg_20_overlay, 1);
-		opm_tx(i + 0x38, patch->pms_ams, patch_prev->pms_ams, opm_state->cache_invalid);
-
-		opm_tx(i + 0x40, patch->dt1_mul[0], patch_prev->dt1_mul[0], opm_state->cache_invalid);
-		opm_tx(i + 0x48, patch->dt1_mul[1], patch_prev->dt1_mul[1], opm_state->cache_invalid);
-		opm_tx(i + 0x50, patch->dt1_mul[2], patch_prev->dt1_mul[2], opm_state->cache_invalid);
-		opm_tx(i + 0x58, patch->dt1_mul[3], patch_prev->dt1_mul[3], opm_state->cache_invalid);
-
-		opm_tx(i + 0x60, patch->tl[0], patch_prev->tl[0], opm_state->cache_invalid);
-		opm_tx(i + 0x68, patch->tl[1], patch_prev->tl[1], opm_state->cache_invalid);
-		opm_tx(i + 0x70, patch->tl[2], patch_prev->tl[2], opm_state->cache_invalid);
-		opm_tx(i + 0x78, patch->tl[3], patch_prev->tl[3], opm_state->cache_invalid);
-
-		opm_tx(i + 0x80, patch->ks_ar[0], patch_prev->ks_ar[0], opm_state->cache_invalid);
-		opm_tx(i + 0x88, patch->ks_ar[1], patch_prev->ks_ar[1], opm_state->cache_invalid);
-		opm_tx(i + 0x90, patch->ks_ar[2], patch_prev->ks_ar[2], opm_state->cache_invalid);
-		opm_tx(i + 0x98, patch->ks_ar[3], patch_prev->ks_ar[3], opm_state->cache_invalid);
-
-		opm_tx(i + 0xA0, patch->ame_d1r[0], patch_prev->ame_d1r[0], opm_state->cache_invalid);
-		opm_tx(i + 0xA8, patch->ame_d1r[1], patch_prev->ame_d1r[1], opm_state->cache_invalid);
-		opm_tx(i + 0xB0, patch->ame_d1r[2], patch_prev->ame_d1r[2], opm_state->cache_invalid);
-		opm_tx(i + 0xB8, patch->ame_d1r[3], patch_prev->ame_d1r[3], opm_state->cache_invalid);
-
-		opm_tx(i + 0xC0, patch->dt2_d2r[0], patch_prev->dt2_d2r[0], opm_state->cache_invalid);
-		opm_tx(i + 0xC8, patch->dt2_d2r[1], patch_prev->dt2_d2r[1], opm_state->cache_invalid);
-		opm_tx(i + 0xD0, patch->dt2_d2r[2], patch_prev->dt2_d2r[2], opm_state->cache_invalid);
-		opm_tx(i + 0xD8, patch->dt2_d2r[3], patch_prev->dt2_d2r[3], opm_state->cache_invalid);
-
-		opm_tx(i + 0xE0, patch->d1l_rr[0], patch_prev->d1l_rr[0], opm_state->cache_invalid);
-		opm_tx(i + 0xE0, patch->d1l_rr[0], patch_prev->d1l_rr[0], opm_state->cache_invalid);
-		opm_tx(i + 0xF0, patch->d1l_rr[0], patch_prev->d1l_rr[0], opm_state->cache_invalid);
-		opm_tx(i + 0xF0, patch->d1l_rr[0], patch_prev->d1l_rr[0], opm_state->cache_invalid);
-
-		opm_state->patch_prev = opm_state->patch;
-		opm_state->reg_28_cache_prev = opm_state->reg_28_cache;
-		opm_state->reg_30_cache_prev = opm_state->reg_30_cache;
-
-		opm_state->cache_invalid = 0;
+		xb_opm_set_kc(i, opm_state->reg_kc_data);
+		xb_opm_set_key_fraction(i, opm_state->reg_kf_data);
+		xb_opm_set_lr_fl_con(i, opm_state->pan_overlay, patch->fl, patch->con);
+		xb_opm_set_pms_ams(i, patch->pms, patch->ams);
+		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+		{
+			xb_opm_set_dt1_mul(i, j, patch->dt1[j], patch->mul[j]);
+			xb_opm_set_tl(i, j, patch->tl[j]);
+			xb_opm_set_ks_ar(i, j, patch->ks[j], patch->ar[j]);
+			xb_opm_set_ame_d1r(i, j, patch->ame[j], patch->d1r[j]);
+			xb_opm_set_dt2_d2r(i, j, patch->dt2[j], patch->d2r[j]);
+			xb_opm_set_d1l_rr(i, j, patch->d1l[j], patch->rr[j]);
+		}
 	}
+	xb_opm_commit();
 }
 
 static inline void cut_all_opm_sound(void)
 {
 	// Silence any lingering channel noise.
-	for (uint16_t i = 0; i < 8; i++)
+	for (uint16_t i = 0; i < XB_OPM_VOICE_COUNT; i++)
 	{
-		x68k_opm_set_key_on(i, 0);
-		x68k_opm_set_tl(i, 0, 0x7F);
-		x68k_opm_set_tl(i, 1, 0x7F);
-		x68k_opm_set_tl(i, 2, 0x7F);
-		x68k_opm_set_tl(i, 3, 0x7F);
+		xb_opm_set_key_on(i, 0);
+		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+		{
+			xb_opm_set_tl(j, 0, 0x7F);
+		}
 	}
+	xb_opm_commit();
 }
 
 void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 {
-	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
-	{
-		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
-		xt->chan[i].opm.cache_invalid = 1;
-	}
 	cut_all_opm_sound();
 	xt->repeat_frame = repeat;
-	xt->playing = 1;
+	xt->playing = true;
 	xt->current_ticks_per_row = xt->track.ticks_per_row;
 	xt->tick_counter = 0;
 
@@ -448,5 +404,5 @@ void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 void xt_stop_playing(Xt *xt)
 {
 	cut_all_opm_sound();
-	xt->playing = 0;
+	xt->playing = false;
 }

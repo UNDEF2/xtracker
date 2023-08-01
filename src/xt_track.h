@@ -9,7 +9,6 @@
 #define XT_INSTRUMENT_COUNT 64
 #define XT_SAMPLE_COUNT 64
 
-#include "x68000/x68k_opm.h"
 #include "xt_instrument.h"
 
 typedef enum XtCmd
