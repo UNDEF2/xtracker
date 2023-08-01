@@ -1,13 +1,14 @@
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
-#include "xbase/pcg.h"
 #include "common.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
 
-#define ROLL_SCROLL_MAGNITUDE 8
+#include <dos.h>
+
+#define ROLL_SCROLL_MAGNITUDE 16
 
 void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t)
 {
@@ -43,7 +44,7 @@ void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
 		if (p->channel_dirty[i])
 		{
 			xt_track_renderer_repaint_channel(r, i);
-			p->channel_dirty[i] = 0;
+			p->channel_dirty[i] = false;
 		}
 	}
 }
@@ -121,8 +122,7 @@ static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
 static inline uint16_t get_x_for_column(uint16_t column,
                                         XtEditorCursorSubPos sub_pos)
 {
-	const uint16_t base = XT_RENDER_CELL_WIDTH_TILES *
-	                      XT_RENDER_CELL_PIXELS * column;
+	const uint16_t base = XT_RENDER_CELL_WIDTH_TILES * column;
 	switch (sub_pos)
 	{
 		default:
@@ -130,15 +130,15 @@ static inline uint16_t get_x_for_column(uint16_t column,
 		case CURSOR_SUBPOS_NOTE:
 			return base;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-			return base + 24;
+			return base + 3;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
-			return base + 32;
+			return base + 4;
 		case CURSOR_SUBPOS_CMD1:
-			return base + 40;
+			return base + 5;
 		case CURSOR_SUBPOS_ARG1_HIGH:
-			return base + 48;
+			return base + 6;
 		case CURSOR_SUBPOS_ARG1_LOW:
-			return base + 56;
+			return base + 7;
 	}
 }
 
@@ -159,26 +159,24 @@ static void cursor_update_cam_column(XtPhraseEditor *p)
 // Redraw the cursor base as needed
 static void cursor_update_nt(XtPhraseEditor *p)
 {
-	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
-	const uint8_t hl_pal = 1;
+	// TODO: Draw to a plane
+	return;
 	if (!p->base_cursor_line_drawn)
 	{
 		for (int16_t i = 3; i < 512 / 8; i++)
 		{
-			nt1[i] = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
+//			nt1[i] = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 		}
-		p->base_cursor_line_drawn = 1;
+		p->base_cursor_line_drawn = true;
 	}
 }
 
 static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 {
-	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
-	const uint8_t hl_pal = 1;
-
-	int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
-	const int16_t draw_y = (p->row * XT_RENDER_CELL_PIXELS) - xt_phrase_editor_get_cam_y(p);
-
+	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p) / XT_RENDER_CELL_PIXELS;
+	const int16_t draw_y = p->row - xt_phrase_editor_get_cam_y(p) / XT_RENDER_CELL_PIXELS;
+	_dos_c_locate(draw_x, draw_y);
+/*
 	switch (p->sub_pos)
 	{
 		default:
@@ -216,9 +214,9 @@ static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
-	}
-	xb_pcg_set_bg1_xscroll(-draw_x);
-	xb_pcg_set_bg1_yscroll(-draw_y);
+	}*/
+
+	// TODO: Set scroll to -draw_x, -draw_y for cursor
 }
 
 // ============================================================================
@@ -530,7 +528,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case CURSOR_SUBPOS_NOTE:
 			if (handle_note_entry(p, t, e))
 			{
-				p->channel_dirty[p->column] = 1;
+				p->channel_dirty[p->column] = true;
 				cursor_down(p, t);
 			}
 			break;
@@ -538,7 +536,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case CURSOR_SUBPOS_ARG1_HIGH:
 			if (handle_number_entry(p, t, e))
 			{
-				p->channel_dirty[p->column] = 1;
+				p->channel_dirty[p->column] = true;
 				cursor_right(p, t);
 			}
 			break;
@@ -546,7 +544,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case CURSOR_SUBPOS_ARG1_LOW:
 			if (handle_number_entry(p, t, e))
 			{
-				p->channel_dirty[p->column] = 1;
+				p->channel_dirty[p->column] = true;
 				cursor_down(p, t);
 				cursor_left(p, t);
 			}
@@ -554,7 +552,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case CURSOR_SUBPOS_CMD1:
 			if (handle_command_entry(p, t, e))
 			{
-				p->channel_dirty[p->column] = 1;
+				p->channel_dirty[p->column] = true;
 				cursor_right(p, t);
 			}
 			break;

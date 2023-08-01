@@ -6,26 +6,22 @@
 #include <string.h>
 #include <stdbool.h>
 
-#include "xbase/pcg.h"
 #include "xbase/crtc.h"
 #include "xbase/memmap.h"
 #include "xbase/vidcon.h"
 #include "xbase/mfp.h"
-#include "xbase/util/display.h"
 
 #include "common.h"
 #include "cgprint.h"
 #include "ui/fnlabels.h"
+#include "ui/track_render.h"
 #include "xt.h"
 #include "xt_arrange_render.h"
-#include "xt_track_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
 #include "xt_irq.h"
 #include "xt_palette.h"
 #include "xt_instrument.h"
-
-static XBDisplay s_display;
 
 static Xt s_xt;
 static XtKeys s_keys;
@@ -39,53 +35,6 @@ static XtPhraseEditor s_phrase_editor;
 
 static int16_t s_old_crt_mode;
 
-// Base configuration for high x low resolution scan, and 2 x 256-color 
-// CG planes.
-#define CRT_FLAGS_BASE 0x0101
-
-// 512 x 256 @ 55Hz
-static const XBDisplayMode mode_15k =
-#define CRT_FLAGS CRT_FLAGS_BASE
-{
-	{
-		0x004C, 0x0009, 0x000A, 0x004A,
-		0x011C, 0x0002, 0x0014, 0x0114,
-		0x20, CRT_FLAGS
-	},
-	{
-		0x00FF, 0x000E, 0x0014, 0x0000
-	},
-	{
-		(CRT_FLAGS >> 8), 0x31E4, 0x007F
-	}
-#undef CRT_FLAGS
-};
-
-// 512 x 512 @ 55Hz (line doubled)
-static const XBDisplayMode mode_31k =
-// Enables line doubler.
-#define CRT_FLAGS CRT_FLAGS_BASE | 0x0010
-{
-	{
-		0x005B, 0x0008, 0x0011, 0x0051,
-		0x0237, 0x0005, 0x0026, 0x0226,
-		0x1B, CRT_FLAGS
-	},
-	{
-		0x00FF, 0x0015, 0x0026, 0x0010
-	},
-	{
-		(CRT_FLAGS >> 8), 0x31E4, 0x007F
-	}
-#undef CRT_FLAGS
-};
-
-static const XBDisplayMode *display_modes[] =
-{
-	&mode_31k,
-	&mode_15k,
-};
-
 void draw_mock_ui(void)
 {
 	// Draw bottom legend
@@ -94,55 +43,6 @@ void draw_mock_ui(void)
 	ui_fnlabel_set(2, "META");
 	ui_fnlabel_set(3, "INSTR");
 	ui_fnlabel_set(4, "ARRANGE");
-}
-
-bool video_init(void)
-{
-	xb_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
-
-	xt_irq_init();
-
-	// Clear PCG nametables and data
-//	while (xb_mfp_read_gpdr() & XB_MFP_GPDR_VDISP) {}
-	xb_pcg_set_disp_en(0);
-	memset((void *)XB_PCG_TILE_DATA, 0, 0x4000);
-	memset((void *)XB_PCG_SPR_TABLE, 0, 0x400);
-	memset((void *)XB_PCG_BG0_NAME, 0, 0x2000);
-	memset((void *)XB_PCG_BG1_NAME, 0, 0x2000);
-
-	// Load font tileset
-	FILE *f;
-	f = fopen("RES\\PCG.BIN", "rb");
-	if (!f)
-	{
-		fprintf(stderr, "Error: Could not load PCG data.\n");
-		return false;
-	}
-	volatile uint16_t *pcg_data = (volatile uint16_t *)XB_PCG_TILE_DATA;
-	while (!feof(f))
-	{
-		uint16_t word = 0;
-		word |= (fgetc(f) << 8);
-		word |= fgetc(f);
-		*pcg_data++ = word;
-	}
-	fclose(f);
-
-	xb_pcg_set_bg0_txsel(0);
-	xb_pcg_set_bg1_txsel(1);
-	xb_pcg_set_bg0_enable(1);
-	xb_pcg_set_bg1_enable(1);
-
-	xb_pcg_set_bg0_xscroll(0);
-	xb_pcg_set_bg1_xscroll(0);
-
-	xb_pcg_set_bg0_yscroll(0);
-	xb_pcg_set_bg1_yscroll(0);
-
-//	while (xb_mfp_read_gpdr() & XB_MFP_GPDR_VDISP) {}
-
-	xb_pcg_set_disp_en(1);
-	return true;
 }
 
 //
@@ -234,42 +134,36 @@ void set_demo_meta(void)
 // Main
 //
 
-static int main_init(void)
+static void main_init(void)
 {
 	// Disable some Human68k stuff we won't be using
 	_iocs_g_clr_on();
-	_iocs_b_curoff();
-	_iocs_ms_curof();
 	_iocs_skey_mod(0, 0, 0);
 
 	// Store the old video mode so we can restore it on exit.
 	s_old_crt_mode = _iocs_crtmod(-1);
+	_iocs_crtmod(16);
+
+	_dos_c_width(1);
 
 	// Let Human68k know that we're using all planes
 	// (this prevents it from popping up the calculator or softkey).
 	_iocs_tgusemd(0, 2);  // Grahpics planes, in use
-	_iocs_tgusemd(1, 0);  // Let Human use the text planes.
+	_iocs_tgusemd(1, 2);  // Let Human use the text planes.
 
 	cgprint_load("RES\\CGFNT8.BIN");
 
-	if (!video_init())
-	{
-		fprintf(stderr, "Couldn't start Xtracker.\n");
-		return 0;
-	}
+	xt_irq_init();
 
 	_iocs_b_clr_al();
 
 	xt_palette_init();
-
-	return 1;
 }
 
 static void main_shutdown(void)
 {
 	_iocs_g_clr_on();
 	_iocs_skey_mod(-1, 0, 0);
-	_iocs_b_curon();
 	_iocs_crtmod(s_old_crt_mode);
 
 	_iocs_tgusemd(0, 0);
@@ -294,23 +188,17 @@ typedef enum XtUiFocus
 
 int main(int argc, char **argv)
 {
-	while (0)
-	{
-		const int chara = _dos_getchar();
-		printf("$%04X\n", chara);
-	}
 	_dos_super(0);
 
-	if (!main_init())
-	{
-		return -1;
-	}
+	main_init();
 
 	xt_init(&s_xt);
 
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
+
 	xt_irq_wait_vbl();
+
 	xt_track_renderer_init(&s_track_renderer);
 	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
 	xt_keys_init(&s_keys);
@@ -343,13 +231,11 @@ int main(int argc, char **argv)
 				xt_poll(&s_xt);
 
 				// TODO: This is a hack, if this works it needs to be done properly
-				const XBDisplayMode *mode = xb_display_get_mode(&s_display);
-				const int visible_channels = (mode->crtc.hdisp_end - mode->crtc.hdisp_start) / 8;
+				const int visible_channels = 8;
 				s_track_renderer.visible_channels = visible_channels;
 				s_phrase_editor.visible_channels = visible_channels;
 				while (xt_keys_event_pop(&s_keys, &key_event))
 				{
-					if (key_event.name == XT_KEY_HELP) xb_display_cycle_mode(&s_display);
 					if (!s_xt.playing)
 					{
 						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
@@ -376,15 +262,14 @@ int main(int argc, char **argv)
 						xt_start_playing(&s_xt, s_phrase_editor.frame,
 						                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
 					}
-					xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
 					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_phrase_editor.frame);
 					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
+					xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
 				}
 				xt_update_opm_registers(&s_xt);
 				break;
 		}
 
-		xb_pcg_finish_sprites();
 		xt_irq_wait_vbl();
 
 		elapsed++;

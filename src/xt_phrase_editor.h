@@ -2,8 +2,8 @@
 #define _XT_PHRASE_EDITOR_H
 
 #include "xt_track.h"
+#include "ui/track_render.h"
 #include "xt_keys.h"
-#include "xt_track_render.h"
 #include <stdint.h>
 
 typedef enum XtEditorCursorSubPos
@@ -49,7 +49,7 @@ typedef struct XtPhraseEditor
 	int16_t visible_channels;
 	int16_t total_channels;
 
-	int16_t base_cursor_line_drawn;
+	bool base_cursor_line_drawn;
 } XtPhraseEditor;
 
 void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t);

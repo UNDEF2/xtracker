@@ -1,12 +1,11 @@
-#ifndef _XT_TRACK_RENDER_H
-#define _XT_TRACK_RENDER_H
+#ifndef UI_TRACK_RENDER_H
+#define UI_TRACK_RENDER_H
 
 #include "xt.h"
-
 #include "xt_track.h"
 
 #define XT_RENDER_CELL_PIXELS 8
-#define XT_RENDER_CELL_WIDTH_TILES 8
+#define XT_RENDER_CELL_WIDTH_TILES 12
 #define XT_RENDER_NT_WIDTH_TILES 64
 
 typedef struct XtChannelRenderState
@@ -16,13 +15,13 @@ typedef struct XtChannelRenderState
 	const XtPhrase *last_phrase;
 	// Mark a channel as in need of a repaint. This can be from a change of
 	// the channel phrase number, or a user input (e.g. editing a column).
-	int16_t dirty;
+	bool dirty;
 	// Whether or not this channel is visible on the name table.
 	// As the nametable is only 64 cells wide, channel 8 and channel 0 occupy
 	// the same target spot on the nametable. As the editor scrolls to the
 	// right, channel 0 goes "off-camera", at which point channel 8 is now
 	// visible.
-	int16_t active;
+	bool active;
 } XtChannelRenderState;
 
 typedef struct XtTrackRenderer
