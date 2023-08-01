@@ -8,6 +8,8 @@
 static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
+	uint16_t opidx = 0;
+	XtOpmPatch *patch = &opm_state->patch;
 	if (cmd == XT_CMD_NONE) return;
 	switch (cmd)
 	{
@@ -16,32 +18,25 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_TL_OP0:
-			opm_state->patch.tl[0] = 0x7F;
-			break;
 		case XT_CMD_TL_OP1:
-			opm_state->patch.tl[1] = 0x7F;
-			break;
 		case XT_CMD_TL_OP2:
-			opm_state->patch.tl[2] = 0x7F;
-			break;
 		case XT_CMD_TL_OP3:
-			opm_state->patch.tl[3] = 0x7F;
+			opidx = cmd - XT_CMD_TL_OP0;
+			opm_state->patch.tl[opidx] = arg;
+			xb_opm_set_tl(opm_state->voice, opidx, arg);
 			break;
 
 		case XT_CMD_MULT_OP0:
-			opm_state->patch.mul[0] = arg;
-			break;
 		case XT_CMD_MULT_OP1:
-			opm_state->patch.mul[1] = arg;
-			break;
 		case XT_CMD_MULT_OP2:
-			opm_state->patch.mul[2] = arg;
-			break;
 		case XT_CMD_MULT_OP3:
-			opm_state->patch.mul[3] = arg;
+			opidx = cmd - XT_CMD_MULT_OP0;
+			opm_state->patch.mul[opidx] = arg;
+			xb_opm_set_dt1_mul(opm_state->voice, opidx, patch->dt1[opidx], arg);
 			break;
 
 		case XT_CMD_AMPLITUDE:
+			xb_opm_set_dt1_mul(opm_state->voice, opidx, patch->dt1[opidx], arg);
 			opm_state->amplitude = arg;
 			break;
 
@@ -62,9 +57,10 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 
 		case XT_CMD_PAN:
 			if (arg == 0x11) opm_state->pan = OPM_PAN_BOTH;
-			if (arg == 0x01) opm_state->pan = OPM_PAN_RIGHT;
-			if (arg == 0x10) opm_state->pan = OPM_PAN_LEFT;
+			else if (arg == 0x01) opm_state->pan = OPM_PAN_RIGHT;
+			else if (arg == 0x10) opm_state->pan = OPM_PAN_LEFT;
 			else opm_state->pan = OPM_PAN_NONE;
+			xb_opm_set_lr_fl_con(opm_state->voice, opm_state->pan, patch->fl, patch->con);
 			break;
 
 		case XT_CMD_TUNE:
@@ -103,25 +99,51 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 	}
 }
 
+static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
+{
+	XtOpmPatch *patch = &opm_state->patch;
+	// TODO: Create TL caches, and use that to apply both note cut, and
+	//       the channel amplitude settings, to the TL.
+	const uint8_t i = opm_state->voice;
+	xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
+	xb_opm_set_pms_ams(i, patch->pms, patch->ams);
+	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+	{
+		xb_opm_set_dt1_mul(i, j, patch->dt1[j], patch->mul[j]);
+		xb_opm_set_tl(i, j, patch->tl[j]);
+		xb_opm_set_ks_ar(i, j, patch->ks[j], patch->ar[j]);
+		xb_opm_set_ame_d1r(i, j, patch->ame[j], patch->d1r[j]);
+		xb_opm_set_dt2_d2r(i, j, patch->dt2[j], patch->d2r[j]);
+		xb_opm_set_d1l_rr(i, j, patch->d1l[j], patch->rr[j]);
+	}
+}
+
 static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
                                      XtOpmChannelState *opm_state,
                                      const XtCell *cell)
 {
 	if (xt->track.instruments[cell->inst].type != XT_CHANNEL_OPM) return;
-	opm_state->patch = xt->track.instruments[cell->inst].opm;
+	if (cell->inst != opm_state->patch_no)
+	{
+		opm_state->patch_no = cell->inst;
+		xt_set_opm_patch_full(opm_state);
+	}
 
+	opm_state->patch = xt->track.instruments[cell->inst].opm;
 
 	if (cell->note == XT_NOTE_OFF)
 	{
 		opm_state->key_state = KEY_STATE_OFF;
 		opm_state->key_command = KEY_COMMAND_OFF;
 		opm_state->key_on_delay_count = 0;
+		opm_state->patch_no = -1;
 	}
 	else if (cell->note == XT_NOTE_CUT)
 	{
 		opm_state->key_state = KEY_STATE_CUT;
 		opm_state->key_command = KEY_COMMAND_OFF;
 		opm_state->key_on_delay_count = 0;
+		opm_state->patch_no = -1;
 	}
 	else
 	{
@@ -176,7 +198,6 @@ static inline void xt_update_key_state(XtOpmChannelState *opm_state)
 		{
 			opm_state->key_state = KEY_STATE_OFF;
 			opm_state->key_command = KEY_COMMAND_OFF;
-
 		}
 	}
 
@@ -237,8 +258,13 @@ void xt_init(Xt *xt)
 	// Set channel types.
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
-		xt->chan[i].type = (i < 8) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
-		xt->chan[i].opm.pan = OPM_PAN_BOTH;
+		xt->chan[i].type = (i < XB_OPM_VOICE_COUNT) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
+		if (xt->chan[i].type == XT_CHANNEL_OPM)
+		{
+			xt->chan[i].opm.pan = OPM_PAN_BOTH;
+			xt->chan[i].opm.voice = i;
+			xt->chan[i].opm.patch_no = -1;
+		}
 	}
 
 	// TODO: Init/allocate channels and their types based on the track info.
@@ -293,6 +319,9 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 	opm_state->reg_kf_data = kf;
 	opm_state->reg_kc_data = kc;
 
+	xb_opm_set_kc(opm_state->voice, opm_state->reg_kc_data);
+	xb_opm_set_key_fraction(opm_state->voice, opm_state->reg_kf_data);
+
 	// TODO: Add vibrato to the pitch register caches (not applied to the
 	// pitch data itself)
 
@@ -334,6 +363,11 @@ void xt_update_opm_registers(Xt *xt)
 		XtOpmChannelState *opm_state = &xt->chan[i].opm;
 		XtOpmPatch *patch = &opm_state->patch;
 
+		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+		{
+			xb_opm_set_tl(i, j, (opm_state->key_state == KEY_STATE_CUT) ? 0x7F : patch->tl[j]);
+		}
+
 		// Key state
 		if (opm_state->key_command == KEY_COMMAND_ON)
 		{
@@ -343,32 +377,11 @@ void xt_update_opm_registers(Xt *xt)
 		}
 		else if (opm_state->key_command == KEY_COMMAND_OFF)
 		{
-			// TODO: Remove once we have TL cache
-			if (opm_state->key_state == KEY_STATE_CUT)
-			{
-				memset(patch->tl, 0x7F, sizeof(patch->tl));
-			}
 			xb_opm_set_key_on(i, 0x0);
 			opm_state->key_command = KEY_COMMAND_NONE;
 		}
-
-		// TODO: Create TL caches, and use that to apply both note cut, and
-		//       the channel amplitude settings, to the TL.
-
-		xb_opm_set_kc(i, opm_state->reg_kc_data);
-		xb_opm_set_key_fraction(i, opm_state->reg_kf_data);
-		xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
-		xb_opm_set_pms_ams(i, patch->pms, patch->ams);
-		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
-		{
-			xb_opm_set_dt1_mul(i, j, patch->dt1[j], patch->mul[j]);
-			xb_opm_set_tl(i, j, patch->tl[j]);
-			xb_opm_set_ks_ar(i, j, patch->ks[j], patch->ar[j]);
-			xb_opm_set_ame_d1r(i, j, patch->ame[j], patch->d1r[j]);
-			xb_opm_set_dt2_d2r(i, j, patch->dt2[j], patch->d2r[j]);
-			xb_opm_set_d1l_rr(i, j, patch->d1l[j], patch->rr[j]);
-		}
 	}
+
 	xb_opm_commit();
 }
 
@@ -404,6 +417,7 @@ void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 	{
 		XtChannelState *chan = &xt->chan[i];
 		chan->opm.pan = OPM_PAN_BOTH;
+		chan->opm.patch_no = -1;
 	}
 }
 

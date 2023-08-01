@@ -35,7 +35,11 @@ typedef enum XtOpmKeyCommand
 typedef struct XtOpmChannelState
 {
 	XtOpmPatch patch;
+	int16_t patch_no;
 	XBOpmPan pan;
+
+	bool patch_fresh;  // Patch was just set newly and needs to be fully set.
+	uint16_t voice;  // Voice / channel on the OPM.
 
 	XtMod mod_vibrato;
 	XtMod mod_tremolo;
