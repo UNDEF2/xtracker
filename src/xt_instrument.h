@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
+
+#include "xbase/opm.h"
 
 #include "xt_types.h"
 
@@ -12,16 +15,32 @@ typedef enum XtChannelType
 	XT_CHANNEL_ADPCM
 } XtChannelType;
 
+typedef enum XtPan
+{
+	XT_PAN_NONE = 0x00,
+	XT_PAN_LEFT = 0x01,
+	XT_PAN_RIGHT = 0x02,
+	XT_PAN_BOTH = 0x03,
+} XtPan;
+
 typedef struct XtOpmPatch
 {
-	uint8_t pan_fl_con;  // Rch (1), Lch(1), FL(3), CON(3)
-	uint8_t pms_ams;     // null (1), PMS(3), null(2), AMS(2)
-	uint8_t dt1_mul[4];  // null (1), DT1(3), MUL(4)
-	uint8_t tl[4];       // null(1), TL(7)
-	uint8_t ks_ar[4];    // ks(2), null(1), AR(5)
-	uint8_t ame_d1r[4];  // ame(1), null(2), D1R(5)
-	uint8_t dt2_d2r[4];  // dt2(2), null(1), D2R(5)
-	uint8_t d1l_rr[4];   // D1L(4), RR(4)
+	uint8_t fl;
+	uint8_t con;
+	uint8_t pms;
+	uint8_t ams;
+
+	uint8_t dt1[XB_OPM_OP_COUNT];
+	uint8_t mul[XB_OPM_OP_COUNT];
+	uint8_t tl[XB_OPM_OP_COUNT];
+	uint8_t ks[XB_OPM_OP_COUNT];
+	uint8_t ar[XB_OPM_OP_COUNT];
+	uint8_t ame[XB_OPM_OP_COUNT];
+	uint8_t d1r[XB_OPM_OP_COUNT];
+	uint8_t dt2[XB_OPM_OP_COUNT];
+	uint8_t d2r[XB_OPM_OP_COUNT];
+	uint8_t d1l[XB_OPM_OP_COUNT];
+	uint8_t rr[XB_OPM_OP_COUNT];
 } XtOpmPatch;
 
 typedef struct XtAdpcmPatch
@@ -33,7 +52,7 @@ typedef struct XtAdpcmPatch
 struct XtInstrument
 {
 	XtChannelType type;
-	int16_t valid;
+	bool valid;
 	char name[32];
 	union
 	{
@@ -47,7 +66,7 @@ typedef struct XtInstrument XtInstrument;
 
 struct XtInstrumentFileRecord
 {
-	uint8_t header_magic[8];  // "XTrackIn"
+	uint8_t header_magic[8];
 	XtInstrument instrument_data;
 
 	// Array of indeterminate length containing ADPCM sample data.

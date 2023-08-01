@@ -4,8 +4,9 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "x68000/x68k_pcg.h"
-#include "x68000/x68k_vidcon.h"
+#include "xbase/pcg.h"
+#include "xbase/vidcon.h"
+#include "xbase/memmap.h"
 
 // Labels starting at XT_NOTE_NONE.
 static const uint8_t s_note_label_mappings[13][3] =
@@ -30,7 +31,7 @@ static void draw_empty_column(uint16_t x, uint16_t height,
 {
 	int16_t acc[2] = {0, 0};
 
-	volatile uint16_t *nt0 = (volatile uint16_t *)PCG_BG0_NAME;
+	volatile uint16_t *nt0 = (volatile uint16_t *)XB_PCG_BG0_NAME;
 	nt0 += (x % XT_RENDER_NT_WIDTH_TILES);
 
 	static const uint8_t normal_pal = 1;
@@ -54,14 +55,14 @@ static void draw_empty_column(uint16_t x, uint16_t height,
 		}
 		acc[1]--;
 
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x78);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-		*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x78);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 
 		nt0 += (nt_width_cells - cell_width_cells);
 	}
@@ -77,7 +78,7 @@ static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
 	static const int16_t nt_width_cells = 512 / 8;
 	static const int16_t cell_width_cells = XT_RENDER_CELL_WIDTH_TILES;
 	const XtCell *cell = &phrase->cells[0];
-	volatile uint16_t *nt0 = (volatile uint16_t *)PCG_BG0_NAME;
+	volatile uint16_t *nt0 = (volatile uint16_t *)XB_PCG_BG0_NAME;
 	nt0 += (x % XT_RENDER_NT_WIDTH_TILES);
 	for (uint16_t i = 0; i < height; i++)
 	{
@@ -98,44 +99,44 @@ static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
 		// Note and instrument.
 		if (cell->note == XT_NOTE_OFF )
 		{
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x79);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7D);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x79);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7D);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		}
 		else if (cell->note == XT_NOTE_CUT)
 		{
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7A);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7E);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7A);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7E);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		}
 		else if (cell->note == XT_NOTE_NONE)
 		{
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x78);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x78);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		}
 		else
 		{
 			// Note
 			const uint8_t note = cell->note & XT_NOTE_TONE_MASK;
-			*nt0++ = PCG_ATTR(0, 0, pal, s_note_label_mappings[note][0]);
-			*nt0++ = PCG_ATTR(0, 0, pal, s_note_label_mappings[note][1]);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, s_note_label_mappings[note][0]);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, s_note_label_mappings[note][1]);
 
 			// Octave
 			const uint8_t octave = cell->note >> 4;
-			*nt0++ = PCG_ATTR(0, 0, pal, 0x10 + octave);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x10 + octave);
 
 			// Instrument
 			const uint8_t instr_high = 0x20 + (cell->inst >> 4);
 			const uint8_t instr_low = 0x20 + (cell->inst & 0x0F);
-			*nt0++ = PCG_ATTR(0, 0, pal, instr_high);
-			*nt0++ = PCG_ATTR(0, 0, pal, instr_low);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, instr_high);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, instr_low);
 		}
 
 		// Commands and Params.
@@ -143,17 +144,17 @@ static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
 		{
 			if (cell->cmd[j].cmd == XT_CMD_NONE)
 			{
-				*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-				*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
-				*nt0++ = PCG_ATTR(0, 0, pal, 0x7F);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 			}
 			else
 			{
 				const uint8_t arg_high = 0x60 + (cell->cmd[j].arg >> 4);
 				const uint8_t arg_low = 0x60 + (cell->cmd[j].arg & 0xF);
-				*nt0++ = PCG_ATTR(0, 0, pal, cell->cmd[j].cmd);
-				*nt0++ = PCG_ATTR(0, 0, pal, arg_high);
-				*nt0++ = PCG_ATTR(0, 0, pal, arg_low);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, cell->cmd[j].cmd);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, arg_high);
+				*nt0++ = XB_PCG_ATTR(0, 0, pal, arg_low);
 			}
 		}
 		cell++;
@@ -240,8 +241,8 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 	}
 
 	// Move the planes around for the camera.
-	x68k_pcg_set_bg0_xscroll(r->cam_x);
-	x68k_pcg_set_bg0_yscroll(r->cam_y);
+	xb_pcg_set_bg0_xscroll(r->cam_x);
+	xb_pcg_set_bg0_yscroll(r->cam_y);
 }
 
 void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y)

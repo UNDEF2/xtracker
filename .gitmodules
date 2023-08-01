@@ -1,0 +1,3 @@
+[submodule "xbase"]
+	path = xbase
+	url = git@github.com:mikejmoffitt/xbase

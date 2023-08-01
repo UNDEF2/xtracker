@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "common.h"
+#include "xbase/opm.h"
 #include "xt_track.h"
 #include "xt_mod.h"
 #include "xt_instrument.h"
@@ -12,7 +13,7 @@
 typedef struct XtOpmPitch
 {
 	uint8_t octave;
-	X68kOpmNote note;
+	XBOpmNote note;
 	uint8_t fraction;
 } XtOpmPitch;
 
@@ -33,11 +34,8 @@ typedef enum XtOpmKeyCommand
 
 typedef struct XtOpmChannelState
 {
-	// FM registers are compared against the last written values, so as to
-	// avoid unnecessary writes (which are slow).
-	// Octave and note are ignored.
 	XtOpmPatch patch;
-	XtOpmPatch patch_prev;
+	XtPan pan_overlay;
 
 	XtMod mod_vibrato;
 	XtMod mod_tremolo;
@@ -46,10 +44,8 @@ typedef struct XtOpmChannelState
 	uint16_t target_pitch;  // This is what is sent to the register.
 
 	// Pitch patch information calculated after processing pitch.
-	uint8_t reg_28_cache;
-	uint8_t reg_30_cache;
-	uint8_t reg_28_cache_prev;
-	uint8_t reg_30_cache_prev;
+	uint8_t reg_kc_data;
+	uint8_t reg_kf_data;
 
 	int16_t portamento_speed;
 	int16_t amplitude;
@@ -60,12 +56,9 @@ typedef struct XtOpmChannelState
 	int16_t mute_delay_count;
 	int16_t cut_delay_count;
 
-	uint8_t reg_20_overlay;
 	int8_t tune;  // Fine offset to be applied to pitch fraction.
 
 	XtOpmKeyCommand key_command;
-
-	int16_t cache_invalid;
 } XtOpmChannelState;
 
 typedef struct XtChannelState
@@ -102,9 +95,9 @@ typedef struct Xt
 	int16_t tick_counter;  // Counts down from the period.
 	int16_t timer_period;  // Period of timer ticks.
 
-	int16_t noise_enable;
+	bool noise_enable;
 
-	int16_t playing;
+	bool playing;
 	int16_t repeat_frame;
 } Xt;
 

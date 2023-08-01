@@ -1,7 +1,8 @@
 #include "cgprint.h"
 #include <stdio.h>
 #include "common.h"
-#include "x68000/x68k_crtc.h"
+#include "xbase/crtc.h"
+#include "xbase/memmap.h"
 
 static const int16_t s_plane_w = 512;
 
@@ -24,7 +25,7 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 {
 	static const int16_t cell_w = 6;
 	static const int16_t cell_h = 8;
-	volatile uint16_t *dest = GVRAM_BASE + (plane * 0x40000) +
+	volatile uint16_t *dest = (volatile uint16_t *)XB_GVRAM_BASE + (plane * 0x40000) +
 	                          x + (y * s_plane_w);
 	char c;
 	while ((c = (*s)))
@@ -57,7 +58,7 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 void cgbox(int16_t plane, uint16_t color, int16_t x1, int16_t y1,
            int16_t x2, int16_t y2)
 {
-	volatile uint16_t *dest = GVRAM_BASE + (plane * 0x40000) +
+	volatile uint16_t *dest = (volatile uint16_t *)XB_GVRAM_BASE + (plane * 0x40000) +
 	                          x1 + (y1 * s_plane_w);
 
 	for (int16_t y = y1; y < y2; y++)

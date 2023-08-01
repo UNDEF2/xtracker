@@ -7,3 +7,7 @@ util/tm/resources/*
 src/*/*.o
 src/*/*.o.*
 *.swp
+out/
+history/
+util/tm/settings.xml
+mo_image.mos
