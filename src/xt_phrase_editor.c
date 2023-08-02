@@ -27,12 +27,12 @@ void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t)
 
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p)
 {
-	return XT_RENDER_CELL_WIDTH_TILES * p->cam_column * XT_RENDER_CELL_PIXELS;
+	return XT_RENDER_CELL_CHARS * p->cam_column * XT_RENDER_CELL_W_PIXELS;
 }
 
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p)
 {
-	return -128 + (p->row * XT_RENDER_CELL_PIXELS);
+	return -128 + (p->row * XT_RENDER_CELL_W_PIXELS);
 }
 
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
@@ -122,7 +122,7 @@ static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
 static inline uint16_t get_x_for_column(uint16_t column,
                                         XtEditorCursorSubPos sub_pos)
 {
-	const uint16_t base = XT_RENDER_CELL_WIDTH_TILES * column;
+	const uint16_t base = XT_RENDER_CELL_CHARS * column;
 	switch (sub_pos)
 	{
 		default:
@@ -173,8 +173,8 @@ static void cursor_update_nt(XtPhraseEditor *p)
 
 static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 {
-	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p) / XT_RENDER_CELL_PIXELS;
-	const int16_t draw_y = p->row - xt_phrase_editor_get_cam_y(p) / XT_RENDER_CELL_PIXELS;
+	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p) / XT_RENDER_CELL_W_PIXELS;
+	const int16_t draw_y = p->row - xt_phrase_editor_get_cam_y(p) / XT_RENDER_CELL_H_PIXELS;
 	_dos_c_locate(draw_x, draw_y);
 /*
 	switch (p->sub_pos)

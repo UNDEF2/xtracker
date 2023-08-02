@@ -8,7 +8,7 @@
 #include "xbase/vidcon.h"
 #include "xbase/memmap.h"
 
-#include <dos.h>
+#include "cgprint.h"
 
 // Labels starting at XT_NOTE_NONE.
 static const char s_note_strings[][3] =
@@ -53,77 +53,103 @@ static void draw_empty_column(uint16_t x, uint16_t height,
 {
 	for (uint16_t i = 0; i < height; i++)
 	{
-		_dos_c_locate(x, i);
-		_dos_c_color(0);
-		_dos_c_print("           |");
+		const uint16_t draw_x = x * XT_RENDER_CELL_W_PIXELS;
+		const uint16_t draw_y = i * XT_RENDER_CELL_H_PIXELS;
+		cgbox(XT_RENDER_CELL_PLANE, 0,
+		      draw_x, draw_y,
+		      draw_x + (XT_RENDER_CELL_W_PIXELS * XT_RENDER_CELL_CHARS),
+		      draw_y + (XT_RENDER_CELL_H_PIXELS));
 	}
 }
 
 static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
                             int16_t back_spacing, int16_t front_spacing)
 {
+	static const uint8_t kpal_inactive = 1;
+	static const uint8_t kpal_note = 2;
+	static const uint8_t kpal_octave = 3;
+	static const uint8_t kpal_inst = 4;
+	static const uint8_t kpal_cmd = 5;
+	static const uint8_t kpal_arg;
+	
+
 	const XtCell *cell = &phrase->cells[0];
 	for (uint16_t i = 0; i < height; i++)
 	{
-		_dos_c_locate(x, i);
-		_dos_c_color(3);
+		uint16_t draw_x = x * XT_RENDER_CELL_W_PIXELS;
+		const uint16_t draw_y = i * XT_RENDER_CELL_H_PIXELS;
+
 
 		// Note and instrument.
 		if (cell->note == XT_NOTE_OFF )
 		{
-			_dos_c_print("== -- ");
+			cgprint(XT_RENDER_CELL_PLANE, kpal_inactive | CG_ATTR_OPAQUE,
+			        "== -- ", draw_x, draw_y);
+			draw_x += 6 * XT_RENDER_CELL_W_PIXELS;
 		}
 		else if (cell->note == XT_NOTE_CUT)
 		{
-			_dos_c_print("^^ -- ");
+			cgprint(XT_RENDER_CELL_PLANE, kpal_inactive | CG_ATTR_OPAQUE,
+			        "^^ -- ", draw_x, draw_y);
+			draw_x += 6 * XT_RENDER_CELL_W_PIXELS;
 		}
 		else if (cell->note == XT_NOTE_NONE)
 		{
-			_dos_c_print("-- -- ");
+			cgprint(XT_RENDER_CELL_PLANE, kpal_inactive | CG_ATTR_OPAQUE,
+			        "-- -- ", draw_x, draw_y);
+			draw_x += 6 * XT_RENDER_CELL_W_PIXELS;
 		}
 		else
 		{
-			_dos_c_color(3);
 			// Note
 			const uint8_t note = cell->note & XT_NOTE_TONE_MASK;
-			_dos_c_print(s_note_strings[note]);
+			cgprint(XT_RENDER_CELL_PLANE, kpal_note | CG_ATTR_OPAQUE,
+			        s_note_strings[note], draw_x, draw_y);
+			draw_x += 2 * XT_RENDER_CELL_W_PIXELS;
 
 			// Octave
-			_dos_c_color(2);
 			const uint8_t octave = cell->note >> 4;
-			_dos_c_print(s_octave_strings[octave]);
+			cgprint(XT_RENDER_CELL_PLANE, kpal_octave | CG_ATTR_OPAQUE,
+			        s_octave_strings[octave], draw_x, draw_y);
+			draw_x += 1 * XT_RENDER_CELL_W_PIXELS;
 
 			// Instrument
-			_dos_c_color(1);
 			const uint8_t instr_high = (cell->inst >> 4);
 			const uint8_t instr_low = (cell->inst & 0x0F);
-			_dos_c_print(s_hex_strings[instr_high]);
-			_dos_c_print(s_hex_strings[instr_low]);
-			_dos_c_putc(' ');
+			cgprint(XT_RENDER_CELL_PLANE, kpal_inst | CG_ATTR_OPAQUE,
+			        s_hex_strings[instr_high], draw_x, draw_y);
+			draw_x += 1 * XT_RENDER_CELL_W_PIXELS;
+			cgprint(XT_RENDER_CELL_PLANE, kpal_inst | CG_ATTR_OPAQUE,
+			        s_hex_strings[instr_low], draw_x, draw_y);
+			draw_x += 2 * XT_RENDER_CELL_W_PIXELS;
 		}
 
 		// Commands and Params.
 		for (uint16_t j = 0; j < ARRAYSIZE(cell->cmd); j++)
 		{
-			_dos_c_color(2);
 			if (cell->cmd[j].cmd == XT_CMD_NONE)
 			{
-				_dos_c_print("---");
+				cgprint(XT_RENDER_CELL_PLANE, kpal_inactive | CG_ATTR_OPAQUE,
+				        "---", draw_x, draw_y);
+				draw_x += 3 * XT_RENDER_CELL_W_PIXELS;
 			}
 			else
 			{
-				_dos_c_color(6);
 				const uint8_t arg_high = (cell->cmd[j].arg >> 4);
 				const uint8_t arg_low = (cell->cmd[j].arg & 0xF);
-				char cmdstr[4];
+				char cmdstr[3];
 				cmdstr[0] = cell->cmd[j].cmd;
-				cmdstr[1] = s_hex_strings[arg_high][0];
-				cmdstr[2] = s_hex_strings[arg_low][1];
-				cmdstr[3] = '\0';
-				_dos_c_print(cmdstr);
+				cmdstr[1] = '\0';
+				cgprint(XT_RENDER_CELL_PLANE, kpal_cmd | CG_ATTR_OPAQUE,
+				        cmdstr, draw_x, draw_y);
+				draw_x += 1 * XT_RENDER_CELL_W_PIXELS;
+				cmdstr[0] = s_hex_strings[arg_high][0];
+				cmdstr[1] = s_hex_strings[arg_low][1];
+				cmdstr[2] = '\0';
+				cgprint(XT_RENDER_CELL_PLANE, kpal_arg | CG_ATTR_OPAQUE,
+				        cmdstr, draw_x, draw_y);
+				draw_x += 2 * XT_RENDER_CELL_W_PIXELS;
 			}
-			if (j != ARRAYSIZE(cell->cmd) - 1) _dos_c_putc(' ');
-			else _dos_c_putc('|');
 		}
 		cell++;
 	}
@@ -132,7 +158,6 @@ static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
 void xt_track_renderer_init(XtTrackRenderer *r)
 {
 	memset(r, 0, sizeof(*r));
-	_dos_c_cls_al();
 	for (int i = 0; i < ARRAYSIZE(r->chan); i++)
 	{
 		r->chan[i].last_phrase = NULL;
@@ -172,18 +197,18 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 		if (phrase != chan->last_phrase)
 		{
 			chan->last_phrase = phrase;
-			chan->dirty = 1;
+			chan->dirty = true;
 		}
 
 		if (highlight_changed)
 		{
-			chan->dirty = 1;
+			chan->dirty = true;
 		}
 
 		// If the channel is dirty, and is "on-plane", repaint it.
 		if (chan->dirty && chan->active)
 		{
-			chan->dirty = 0;
+			chan->dirty = false;
 
 			const int16_t hl[2] = {r->row_highlight[0], r->row_highlight[1]};
 			const int16_t len = xt->track.phrase_length;
@@ -205,12 +230,12 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 			}
 		}
 
-		draw_x += XT_RENDER_CELL_WIDTH_TILES;
+		draw_x += XT_RENDER_CELL_CHARS;
 	}
 
 	// Move the planes around for the camera.
-	xb_crtc_set_text_xscroll(r->cam_x);
-	xb_crtc_set_text_yscroll(r->cam_y);
+//	xb_crtc_set_gp1_xscroll(r->cam_x);
+//	xb_crtc_set_gp1_yscroll(r->cam_y);
 }
 
 void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y)
@@ -219,8 +244,8 @@ void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y)
 	r->cam_y = y;
 
 	const int16_t left_visible_channel = (x) /
-	                                     (XT_RENDER_CELL_PIXELS *
-	                                      XT_RENDER_CELL_WIDTH_TILES);
+	                                     (XT_RENDER_CELL_W_PIXELS *
+	                                      XT_RENDER_CELL_CHARS);
 	const int16_t right_visible_channel = left_visible_channel + r->visible_channels;
 
 	for (int16_t i = 0; i < ARRAYSIZE(r->chan); i++)

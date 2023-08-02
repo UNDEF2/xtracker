@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+#define CGPRINT_PLANE_W 1024
+#define CGPRINT_PLANE_H 1024
+
 void cgprint_load(const char *fname);
 
 #define CG_ATTR_OPAQUE 0x1000

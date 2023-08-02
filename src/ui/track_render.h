@@ -4,9 +4,13 @@
 #include "xt.h"
 #include "xt_track.h"
 
-#define XT_RENDER_CELL_PIXELS 8
-#define XT_RENDER_CELL_WIDTH_TILES 12
+#define XT_RENDER_CELL_PLANE 0
+
+#define XT_RENDER_CELL_W_PIXELS 6
+#define XT_RENDER_CELL_H_PIXELS 8
+#define XT_RENDER_CELL_CHARS 12
 #define XT_RENDER_NT_WIDTH_TILES 64
+
 
 typedef struct XtChannelRenderState
 {
