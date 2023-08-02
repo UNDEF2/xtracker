@@ -22,6 +22,8 @@ CFLAGS += -fno-gcse
 CFLAGS += -fms-extensions
 CFLAGS += -fno-web -fno-unit-at-a-time
 
+CFLAGS += -DXB_DISPLAY_512PX_PCG_HACK
+
 # TODO: Define X68000 memory map as extern uint8_t arrays and have linker
 # properly point them to the correct locations.
 # TODO: array-bounds and stringop-overflow are bugged on GCC 11.2.0

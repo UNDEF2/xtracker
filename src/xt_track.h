@@ -1,6 +1,8 @@
 #ifndef _XT_TRACK_H
 #define _XT_TRACK_H
 
+#define XT_CMD_COL_COUNT 1
+
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
 #define XT_PHRASES_PER_CHANNEL 256
@@ -87,7 +89,7 @@ typedef struct XtCell
 	{
 		XtCmd cmd;
 		uint8_t arg;
-	} cmd[2];
+	} cmd[XT_CMD_COL_COUNT];
 } XtCell;
 
 // Vertical collection of cells for one channel.

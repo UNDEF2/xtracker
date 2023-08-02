@@ -4,6 +4,9 @@
 #include "xbase/crtc.h"
 #include "xbase/memmap.h"
 
+#define CGPRINT_PLANE_W 512
+
+#define CGPRINT_PLANE_OFFS 0x80000
 static uint8_t s_cgfont[8192];
 
 void cgprint_load(const char *fname)
@@ -18,14 +21,21 @@ void cgprint_load(const char *fname)
 	fclose(f);
 }
 
+static volatile uint16_t *get_cgram_ptr(int16_t plane, int16_t x, int16_t y)
+{
+	volatile uint16_t *dest = (volatile uint16_t *)XB_GVRAM_BASE +
+	                          x + (y * CGPRINT_PLANE_W);
+	dest += plane * CGPRINT_PLANE_OFFS/2;
+	return dest;
+}
+
 void cgprint(int16_t plane, uint16_t attr, const char *s,
              int16_t x, int16_t y)
 {
 	static const int16_t cell_w = 6;
 	static const int16_t cell_h = 8;
-	volatile uint16_t *dest = (volatile uint16_t *)XB_GVRAM_BASE +
-	                          ((uint32_t)(plane) * 0x80000/2) +
-	                          x + (y * CGPRINT_PLANE_W);
+	volatile uint16_t *dest = get_cgram_ptr(plane, x, y);
+
 	char c;
 	while ((c = (*s)))
 	{
@@ -57,9 +67,7 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 void cgbox(int16_t plane, uint16_t color, int16_t x1, int16_t y1,
            int16_t x2, int16_t y2)
 {
-	volatile uint16_t *dest = (volatile uint16_t *)XB_GVRAM_BASE +
-	                          (plane * 0x40000) +
-	                          x1 + (y1 * CGPRINT_PLANE_W);
+	volatile uint16_t *dest = get_cgram_ptr(plane, x1, y1);
 
 	for (int16_t y = y1; y < y2; y++)
 	{

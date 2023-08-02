@@ -1,16 +1,16 @@
-#ifndef UI_TRACK_RENDER_H
-#define UI_TRACK_RENDER_H
+#ifndef _XT_TRACK_RENDER_H
+#define _XT_TRACK_RENDER_H
 
 #include "xt.h"
+
 #include "xt_track.h"
 
-#define XT_RENDER_CELL_PLANE 0
-
-#define XT_RENDER_CELL_W_PIXELS 6
+#define XT_RENDER_CELL_W_PIXELS 8
 #define XT_RENDER_CELL_H_PIXELS 8
-#define XT_RENDER_CELL_CHARS 12
-#define XT_RENDER_NT_WIDTH_TILES 64
+#define XT_RENDER_CELL_CHARS (5 + (XT_CMD_COL_COUNT*3))
+#define XT_RENDER_NT_CHARS 64
 
+#define XT_RENDER_VISIBLE_CHANNELS (512 / (XT_RENDER_CELL_CHARS * XT_RENDER_CELL_W_PIXELS))
 
 typedef struct XtChannelRenderState
 {

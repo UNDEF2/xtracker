@@ -6,6 +6,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#include <xbase/pcg.h>
+
 #include <dos.h>
 
 #define ROLL_SCROLL_MAGNITUDE 16
@@ -14,7 +16,7 @@ void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t)
 {
 	memset(p, 0, sizeof(*p));
 	p->state = EDITOR_NORMAL;
-	p->visible_channels = 7;
+	p->visible_channels = XT_RENDER_VISIBLE_CHANNELS;
 	p->octave = 3;
 
 	// TODO: Respect dynamic channel data
@@ -32,7 +34,7 @@ int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p)
 
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p)
 {
-	return -128 + (p->row * XT_RENDER_CELL_W_PIXELS);
+	return -128 + (p->row * XT_RENDER_CELL_H_PIXELS);
 }
 
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
@@ -122,7 +124,7 @@ static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
 static inline uint16_t get_x_for_column(uint16_t column,
                                         XtEditorCursorSubPos sub_pos)
 {
-	const uint16_t base = XT_RENDER_CELL_CHARS * column;
+	const uint16_t base = (XT_RENDER_CELL_CHARS * XT_RENDER_CELL_W_PIXELS) * column;
 	switch (sub_pos)
 	{
 		default:
@@ -130,15 +132,15 @@ static inline uint16_t get_x_for_column(uint16_t column,
 		case CURSOR_SUBPOS_NOTE:
 			return base;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-			return base + 3;
+			return base + 3 * XT_RENDER_CELL_W_PIXELS;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
-			return base + 4;
+			return base + 4 * XT_RENDER_CELL_W_PIXELS;
 		case CURSOR_SUBPOS_CMD1:
-			return base + 5;
+			return base + 5 * XT_RENDER_CELL_W_PIXELS;
 		case CURSOR_SUBPOS_ARG1_HIGH:
-			return base + 6;
+			return base + 6 * XT_RENDER_CELL_W_PIXELS;
 		case CURSOR_SUBPOS_ARG1_LOW:
-			return base + 7;
+			return base + 7 * XT_RENDER_CELL_W_PIXELS;
 	}
 }
 
@@ -159,13 +161,13 @@ static void cursor_update_cam_column(XtPhraseEditor *p)
 // Redraw the cursor base as needed
 static void cursor_update_nt(XtPhraseEditor *p)
 {
-	// TODO: Draw to a plane
-	return;
+	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
+	const uint8_t hl_pal = 1;
 	if (!p->base_cursor_line_drawn)
 	{
 		for (int16_t i = 3; i < 512 / 8; i++)
 		{
-//			nt1[i] = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
+			nt1[i] = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 		}
 		p->base_cursor_line_drawn = true;
 	}
@@ -173,10 +175,12 @@ static void cursor_update_nt(XtPhraseEditor *p)
 
 static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 {
-	const int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p) / XT_RENDER_CELL_W_PIXELS;
-	const int16_t draw_y = p->row - xt_phrase_editor_get_cam_y(p) / XT_RENDER_CELL_H_PIXELS;
-	_dos_c_locate(draw_x, draw_y);
-/*
+	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
+	const uint8_t hl_pal = 1;
+
+	int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
+	const int16_t draw_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+
 	switch (p->sub_pos)
 	{
 		default:
@@ -214,9 +218,9 @@ static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
-	}*/
-
-	// TODO: Set scroll to -draw_x, -draw_y for cursor
+	}
+	xb_pcg_set_bg1_xscroll(-draw_x);
+	xb_pcg_set_bg1_yscroll(-draw_y);
 }
 
 // ============================================================================

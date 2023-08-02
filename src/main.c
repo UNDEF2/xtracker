@@ -13,6 +13,7 @@
 
 #include "common.h"
 #include "cgprint.h"
+#include "core/display_config.h"
 #include "ui/fnlabels.h"
 #include "ui/track_render.h"
 #include "xt.h"
@@ -30,10 +31,8 @@ static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
 
 //
-// Video Configuration
+// Test Code
 //
-
-static int16_t s_old_crt_mode;
 
 void draw_mock_ui(void)
 {
@@ -44,10 +43,6 @@ void draw_mock_ui(void)
 	ui_fnlabel_set(3, "INSTR");
 	ui_fnlabel_set(4, "ARRANGE");
 }
-
-//
-// Test Code
-//
 
 void set_demo_instruments(void)
 {
@@ -134,44 +129,6 @@ void set_demo_meta(void)
 // Main
 //
 
-static void main_init(void)
-{
-	// Disable some Human68k stuff we won't be using
-	_iocs_g_clr_on();
-	_iocs_skey_mod(0, 0, 0);
-
-	// Store the old video mode so we can restore it on exit.
-	s_old_crt_mode = _iocs_crtmod(-1);
-	_iocs_crtmod(16);
-
-	_dos_c_width(1);
-
-	// Let Human68k know that we're using all planes
-	// (this prevents it from popping up the calculator or softkey).
-	_iocs_tgusemd(0, 2);  // Grahpics planes, in use
-	_iocs_tgusemd(1, 2);  // Let Human use the text planes.
-
-	cgprint_load("RES\\CGFNT8.BIN");
-
-	xt_irq_init();
-
-	_iocs_b_clr_al();
-
-	xt_palette_init();
-}
-
-static void main_shutdown(void)
-{
-	_iocs_g_clr_on();
-	_iocs_skey_mod(-1, 0, 0);
-	_iocs_crtmod(s_old_crt_mode);
-
-	_iocs_tgusemd(0, 0);
-	_iocs_tgusemd(1, 0);
-
-	_dos_kflushio(0xFF);
-}
-
 // TODO: xt_ui.c
 typedef enum XtUiFocus
 {
@@ -190,7 +147,12 @@ int main(int argc, char **argv)
 {
 	_dos_super(0);
 
-	main_init();
+	display_config_init();
+
+	cgprint_load("RES\\CGFNT8.BIN");
+
+	xt_irq_init();
+	xt_palette_init();
 
 	xt_init(&s_xt);
 
@@ -230,12 +192,10 @@ int main(int argc, char **argv)
 				// on the OPM timer.
 				xt_poll(&s_xt);
 
-				// TODO: This is a hack, if this works it needs to be done properly
-				const int visible_channels = 8;
-				s_track_renderer.visible_channels = visible_channels;
-				s_phrase_editor.visible_channels = visible_channels;
+				s_phrase_editor.visible_channels = s_track_renderer.visible_channels;
 				while (xt_keys_event_pop(&s_keys, &key_event))
 				{
+					if (key_event.name == XT_KEY_HELP) display_config_cycle_modes();
 					if (!s_xt.playing)
 					{
 						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
@@ -274,9 +234,11 @@ int main(int argc, char **argv)
 
 		elapsed++;
 	}
+
 	xt_irq_shutdown();
 
-	main_shutdown();
+	display_config_shutdown();
+	_dos_kflushio(0xFF);
 
 	return 0;
 }
