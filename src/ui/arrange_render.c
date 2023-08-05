@@ -1,4 +1,4 @@
-#include "xt_arrange_render.h"
+#include "ui/arrange_render.h"
 #include <string.h>
 
 #include "cgprint.h"
@@ -20,11 +20,8 @@ void xt_arrange_renderer_init(XtArrangeRenderer *a, const XtTrack *t)
 		}
 	}
 
-	if (t)
-	{
-		a->draw_x = 512 - (kcol_spacing * (2 + ARRAYSIZE(t->channel_data)));
-		a->draw_y = 4;
-	}
+	a->draw_x = XT_ARRANGE_RENDER_X;
+	a->draw_y = XT_ARRANGE_RENDER_Y;
 }
 
 // Draw the arrangement table as-needed based on track data and the provided
@@ -56,7 +53,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			y += krow_spacing;
 		}
 
-		a->border_drawn = 1;
+		a->border_drawn = true;
 	}
 
 	if (row >= 0)

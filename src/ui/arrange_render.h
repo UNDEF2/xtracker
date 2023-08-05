@@ -1,7 +1,12 @@
-#ifndef XT_ARRANGE_RENDER_H
-#define XT_ARRANGE_RENDER_H
+#ifndef UI_ARRANGE_RENDER_H
+#define UI_ARRANGE_RENDER_H
 
 #include "xt_track.h"
+
+#include <stdbool.h>
+
+#define XT_ARRANGE_RENDER_X 8
+#define XT_ARRANGE_RENDER_Y 24
 
 /*
 
@@ -24,13 +29,12 @@ typedef struct XtArrangeRenderer
 	// index 0 just refers to the top-left of the area of focus.
 	XtFrame frames[7];
 
-	int16_t border_drawn;
-
 	int16_t row;  // The current row to be selected. Must always be valid.
 	int16_t column;  // The current column to highlight.
 
 	int16_t draw_x, draw_y;
-	
+
+	bool border_drawn;
 } XtArrangeRenderer;
 
 // Set up the XtArrange struct for its first render and further use.
@@ -45,5 +49,5 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 // Mark all frames and the border as needing a redraw.
 void xt_arrange_renderer_redraw(XtArrangeRenderer *a);
 
-#endif  // XT_ARRANGE_RENDER_H
+#endif  // UI_ARRANGE_RENDER_H
 

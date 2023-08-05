@@ -39,8 +39,7 @@ typedef enum XtCmd
 
 	XT_CMD_PAN = 'O',
 
-	XT_CMD_TUNE = 'P',
-
+	XT_CMD_PORTAMENTO = 'P',
 	XT_CMD_TREMOLO = 'T',
 	XT_CMD_VIBRATO = 'V',
 	XT_CMD_TREMOLO_TYPE = 'G',
@@ -51,6 +50,7 @@ typedef enum XtCmd
 	XT_CMD_MUTE_DELAY = 'S',
 	XT_CMD_NOTE_DELAY = 'W',
 	XT_CMD_CUT_DELAY = 'X',
+	XT_CMD_TUNE = 'Z',
 
 	XT_CMD_MAX = 0xFF,
 } XtCmd;

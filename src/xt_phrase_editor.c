@@ -416,7 +416,7 @@ static const XtKeyCommandPairing command_lookup[] =
 
 	{XT_KEY_O, XT_CMD_PAN},
 
-	{XT_KEY_P, XT_CMD_TUNE},
+	{XT_KEY_P, XT_CMD_PORTAMENTO},
 
 	{XT_KEY_T, XT_CMD_TREMOLO},
 	{XT_KEY_V, XT_CMD_VIBRATO},
@@ -428,6 +428,7 @@ static const XtKeyCommandPairing command_lookup[] =
 	{XT_KEY_S, XT_CMD_MUTE_DELAY},
 	{XT_KEY_W, XT_CMD_NOTE_DELAY},
 	{XT_KEY_X, XT_CMD_CUT_DELAY},
+	{XT_KEY_Z, XT_CMD_TUNE},
 };
 
 static inline bool handle_command_entry(XtPhraseEditor *p, XtTrack *t,

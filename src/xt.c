@@ -5,6 +5,77 @@
 
 #include "xbase/opm.h"
 
+//
+// OPM interaction functions
+//
+
+// Sets TL for a patch, accounting for the current amplitude value.
+static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
+{
+	// Defines for each algorithm which operators are carriers.
+	const bool carrier_tbl[4 * 8] =
+	{
+		//Algo  Op 1    Op 3    Op 2    Op 4
+		/* 0 */ false,  false,  false,  true,
+		/* 1 */ false,  false,  false,  true,
+		/* 2 */ false,  false,  false,  true,
+		/* 3 */ false,  false,  false,  true,
+		/* 4 */ false,  false,  true,   true,
+		/* 5 */ false,  true,   true,   true,
+		/* 6 */ false,  true,   true,   true,
+		/* 7 */ true,   true,   true,   true,
+	};
+	XtOpmPatch *patch = &opm_state->patch;
+	const uint8_t i = opm_state->voice;
+	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+	{
+		// Only carriers multiply the amplitude.
+		if (carrier_tbl[(4 * patch->con) + j])
+		{
+			if (opm_state->key_state == KEY_STATE_CUT)
+			{
+				xb_opm_set_tl(i, j, 0x7F); // Silence.
+			}
+			else
+			{
+				// Amplitude is 0x7F (loud) to 0x00 (quiet), but OPM TL operates in
+				// the opposite fashion, so we inevrt it to get attenuation.i
+				const int16_t tl_vol = 0x80 - patch->tl[j];
+				const int16_t adj_tl_vol = (tl_vol * opm_state->amplitude) >> 7;
+				const int16_t final_tl = 0x7F - adj_tl_vol;
+				xb_opm_set_tl(i, j, final_tl);
+			}
+		}
+		else
+		{
+			xb_opm_set_tl(i, j, patch->tl[j]);
+		}
+	}
+}
+
+// Sets the whole patch.
+static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
+{
+	XtOpmPatch *patch = &opm_state->patch;
+	const uint8_t i = opm_state->voice;
+	xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
+	xb_opm_set_pms_ams(i, patch->pms, patch->ams);
+	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
+	{
+		xb_opm_set_dt1_mul(i, j, patch->dt1[j], patch->mul[j]);
+		xb_opm_set_ks_ar(i, j, patch->ks[j], patch->ar[j]);
+		xb_opm_set_ame_d1r(i, j, patch->ame[j], patch->d1r[j]);
+		xb_opm_set_dt2_d2r(i, j, patch->dt2[j], patch->d2r[j]);
+		xb_opm_set_d1l_rr(i, j, patch->d1l[j], patch->rr[j]);
+	}
+	xt_set_opm_patch_tl(opm_state);
+}
+
+
+//
+// Engine Functions
+//
+
 static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
@@ -36,7 +107,6 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_AMPLITUDE:
-			xb_opm_set_dt1_mul(opm_state->voice, opidx, patch->dt1[opidx], arg);
 			opm_state->amplitude = arg;
 			break;
 
@@ -63,8 +133,8 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			xb_opm_set_lr_fl_con(opm_state->voice, opm_state->pan, patch->fl, patch->con);
 			break;
 
-		case XT_CMD_TUNE:
-			opm_state->tune = arg;
+		case XT_CMD_PORTAMENTO:
+			opm_state->portamento_speed = (int8_t)arg;
 			break;
 
 		case XT_CMD_VIBRATO:
@@ -96,25 +166,10 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 		case XT_CMD_CUT_DELAY:
 			opm_state->cut_delay_count = arg;
 			break;
-	}
-}
 
-static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
-{
-	XtOpmPatch *patch = &opm_state->patch;
-	// TODO: Create TL caches, and use that to apply both note cut, and
-	//       the channel amplitude settings, to the TL.
-	const uint8_t i = opm_state->voice;
-	xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
-	xb_opm_set_pms_ams(i, patch->pms, patch->ams);
-	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
-	{
-		xb_opm_set_dt1_mul(i, j, patch->dt1[j], patch->mul[j]);
-		xb_opm_set_tl(i, j, patch->tl[j]);
-		xb_opm_set_ks_ar(i, j, patch->ks[j], patch->ar[j]);
-		xb_opm_set_ame_d1r(i, j, patch->ame[j], patch->d1r[j]);
-		xb_opm_set_dt2_d2r(i, j, patch->dt2[j], patch->d2r[j]);
-		xb_opm_set_d1l_rr(i, j, patch->d1l[j], patch->rr[j]);
+		case XT_CMD_TUNE:
+			opm_state->tune = arg;
+			break;
 	}
 }
 
@@ -122,13 +177,13 @@ static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
                                      XtOpmChannelState *opm_state,
                                      const XtCell *cell)
 {
-	if (xt->track.instruments[cell->inst].type != XT_CHANNEL_OPM) return;
-	if (cell->inst != opm_state->patch_no)
+	// NOTE: I'm explicitly checking for -1 here, because we may use -1 to
+	// indicate no patch (note change without key event) in the future.
+	if (opm_state->patch_no == -1 || cell->inst != opm_state->patch_no)
 	{
 		opm_state->patch_no = cell->inst;
 		xt_set_opm_patch_full(opm_state);
 	}
-
 	opm_state->patch = xt->track.instruments[cell->inst].opm;
 
 	if (cell->note == XT_NOTE_OFF)
@@ -239,6 +294,24 @@ static inline void xt_playback_counters(Xt *xt)
 	}
 }
 
+void channel_reset(XtChannelState *chan, int16_t voice)
+{
+	switch (chan->type)
+	{
+		default:
+			break;
+		case XT_CHANNEL_OPM:
+			chan->opm.voice = voice;
+			chan->opm.pan = OPM_PAN_BOTH;
+			chan->opm.key_state = KEY_STATE_OFF;
+			chan->opm.key_command = KEY_COMMAND_OFF;
+			chan->opm.patch_no = -1;
+			chan->opm.amplitude = 0x7F;
+			xb_opm_set_key_on(chan->opm.voice, 0x0);
+			break;
+	}
+}
+
 void xt_init(Xt *xt)
 {
 	memset(xt, 0, sizeof(*xt));
@@ -259,12 +332,7 @@ void xt_init(Xt *xt)
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
 		xt->chan[i].type = (i < XB_OPM_VOICE_COUNT) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
-		if (xt->chan[i].type == XT_CHANNEL_OPM)
-		{
-			xt->chan[i].opm.pan = OPM_PAN_BOTH;
-			xt->chan[i].opm.voice = i;
-			xt->chan[i].opm.patch_no = -1;
-		}
+		channel_reset(&xt->chan[i], i);
 	}
 
 	// TODO: Init/allocate channels and their types based on the track info.
@@ -298,7 +366,18 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 	}
 	else
 	{
-		// TODO: Slide towards target pitch at portamento speed.
+		if (opm_state->current_pitch < opm_state->target_pitch)
+		{
+			opm_state->current_pitch += opm_state->portamento_speed;
+			if (opm_state->current_pitch > opm_state->target_pitch)
+				opm_state->current_pitch = opm_state->target_pitch;
+		}
+		else if (opm_state->current_pitch > opm_state->target_pitch)
+		{
+			opm_state->current_pitch -= opm_state->portamento_speed;
+			if (opm_state->current_pitch < opm_state->target_pitch)
+				opm_state->current_pitch = opm_state->target_pitch;
+		}
 	}
 
 	// compensate for 4MHz OPM
@@ -361,12 +440,8 @@ void xt_update_opm_registers(Xt *xt)
 	{
 		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
 		XtOpmChannelState *opm_state = &xt->chan[i].opm;
-		XtOpmPatch *patch = &opm_state->patch;
-
-		for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
-		{
-			xb_opm_set_tl(i, j, (opm_state->key_state == KEY_STATE_CUT) ? 0x7F : patch->tl[j]);
-		}
+		
+		xt_set_opm_patch_tl(opm_state);
 
 		// Key state
 		if (opm_state->key_command == KEY_COMMAND_ON)
@@ -401,7 +476,12 @@ static inline void cut_all_opm_sound(void)
 
 void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 {
-	cut_all_opm_sound();
+	for (uint16_t i = 0; i < XB_OPM_VOICE_COUNT; i++)
+	{
+		xb_opm_set_key_on(i, 0);
+	}
+
+	xb_opm_commit();
 	xt->repeat_frame = repeat;
 	xt->playing = true;
 	xt->current_ticks_per_row = xt->track.ticks_per_row;
@@ -415,9 +495,7 @@ void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
 	xt->current_phrase_row = 0;
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
-		XtChannelState *chan = &xt->chan[i];
-		chan->opm.pan = OPM_PAN_BOTH;
-		chan->opm.patch_no = -1;
+		channel_reset(&xt->chan[i], i);
 	}
 }
 

@@ -16,8 +16,8 @@
 #include "core/display_config.h"
 #include "ui/fnlabels.h"
 #include "ui/track_render.h"
+#include "ui/arrange_render.h"
 #include "xt.h"
-#include "xt_arrange_render.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
 #include "xt_irq.h"
@@ -132,15 +132,15 @@ void set_demo_meta(void)
 // TODO: xt_ui.c
 typedef enum XtUiFocus
 {
-	XT_UI_FOCUS_PATTERN,
-	XT_UI_FOCUS_ARRANGE,
+	XT_UI_TRACK_FILE,
+	XT_UI_FOCUS_PATTERN_EDIT,
+	XT_UI_FOCUS_ARRANGE_EDIT,
 	XT_UI_FOCUS_INSTRUMENT_LIST,
 	XT_UI_FOCUS_INSTRUMENT_EDIT,
 	XT_UI_FOCUS_INSTRUMENT_FILE,
-	XT_UI_FOCUS_META,
+	XT_UI_FOCUS_META_EDIT,
 	XT_UI_FOCUS_ADPCM_MAPPING,
 	XT_UI_FOCUS_ADPCM_FILE,
-	// TODO: Instrument file dialogue, ADPCM file dialogue, ADPCM mapping
 } XtUiFocus;
 
 int main(int argc, char **argv)
@@ -151,93 +151,124 @@ int main(int argc, char **argv)
 
 	cgprint_load("RES\\CGFNT8.BIN");
 
-	xt_irq_init();
-	xt_palette_init();
-
 	xt_init(&s_xt);
 
-	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
-	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
-
-	xt_irq_wait_vbl();
+	xt_irq_init();
+	xt_palette_init();
 
 	xt_track_renderer_init(&s_track_renderer);
 	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
 	xt_keys_init(&s_keys);
 	xt_phrase_editor_init(&s_phrase_editor, &s_xt.track);
 
+	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
+	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
+
+	//s_phrase_editor.visible_channels = s_track_renderer.visible_channels;
+
 	// Set up xt with some test data
 	set_demo_meta();
 	set_demo_instruments();
 
-	int elapsed = 0;
-
 	draw_mock_ui();
 
-	XtUiFocus focus = 0;
+	XtUiFocus focus = XT_UI_FOCUS_PATTERN_EDIT;
+
+	uint32_t elapsed = 0;
+	bool quit = false;
 
 	// The main loop.
-	while (!xt_keys_pressed(&s_keys, XT_KEY_ESC))
+	while (!quit)
 	{
+		//
+		// Input handling.
+		//
+
 		xt_keys_poll(&s_keys);
 
 		XtKeyEvent key_event;
 
-		switch (focus)
+		while (xt_keys_event_pop(&s_keys, &key_event))
 		{
-			default:
-				break;
-			case XT_UI_FOCUS_PATTERN:
-				// TODO: tick the playback engine and register updates based
-				// on the OPM timer.
-				xt_poll(&s_xt);
-
-				s_phrase_editor.visible_channels = s_track_renderer.visible_channels;
-				while (xt_keys_event_pop(&s_keys, &key_event))
-				{
-					if (key_event.name == XT_KEY_HELP) display_config_cycle_modes();
-					if (!s_xt.playing)
+			// Focus-specific key events.
+			switch (focus)
+			{
+				default:
+					break;
+				case XT_UI_FOCUS_PATTERN_EDIT:
+					if (s_xt.playing)
 					{
+						if (key_event.name == XT_KEY_CR)
+						{
+							xt_stop_playing(&s_xt);
+						}
+					}
+					else
+					{
+						if (key_event.name == XT_KEY_CR)
+						{
+							xt_start_playing(&s_xt, s_phrase_editor.frame,
+							                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
+						}
 						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
 					}
-				}
+					break;
+			}
 
-				if (s_xt.playing)
-				{
-					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
-					{
-						xt_stop_playing(&s_xt);
-					}
-					// Focus the "camera" down a little bit to make room for the HUD.
-					const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
-					xt_track_renderer_set_camera(&s_track_renderer, xt_phrase_editor_get_cam_x(&s_phrase_editor), yscroll);
-					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_xt.current_frame);
-					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_xt.current_frame, -1);
-				}
-				else
-				{
-					if (xt_keys_pressed(&s_keys, XT_KEY_CR))
-					{
-						// playback position is taken from the editor.
-						xt_start_playing(&s_xt, s_phrase_editor.frame,
-						                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
-					}
-					xt_track_renderer_tick(&s_track_renderer, &s_xt, s_phrase_editor.frame);
-					xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
-					xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
-				}
-				xt_update_opm_registers(&s_xt);
-				break;
+			// General key inputs that are always active.
+			switch (key_event.name)
+			{
+				default:
+					break;
+				case XT_KEY_HELP:
+					display_config_cycle_modes();
+					break;
+				case XT_KEY_ESC:
+					quit = true;
+					break;
+			}
 		}
 
-		xt_irq_wait_vbl();
+		//
+		// Main engine poll.
+		//
 
+		// TODO: tick based on timer
+		xt_poll(&s_xt);
+		xt_update_opm_registers(&s_xt);
+
+		//
+		// Rendering.
+		//
+
+		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
+		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
+
+		if (s_xt.playing)
+		{
+			// Focus the "camera" down a little bit to make room for the HUD.
+			const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
+			xt_track_renderer_set_camera(&s_track_renderer,
+			                             xt_phrase_editor_get_cam_x(&s_phrase_editor),
+			                             yscroll);
+		}
+		else
+		{
+			xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
+		}
+
+		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
+
+		//
+		// Wait for next frame.
+		//
+		xt_irq_wait_vbl();
 		elapsed++;
 	}
 
 	xt_irq_shutdown();
-
 	display_config_shutdown();
+
 	_dos_kflushio(0xFF);
 
 	return 0;
