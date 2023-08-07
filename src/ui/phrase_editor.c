@@ -53,13 +53,28 @@ void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
 // ============================================================================
 // Cursor movement.
 // ============================================================================
-static void cursor_down(XtPhraseEditor *p, const XtTrack *t)
+
+static void frame_down(XtPhraseEditor *p, const XtTrack *t)
+{
+	if (p->frame >= t->num_frames - 1) p->frame = 0;
+	else p->frame++;
+}
+
+static void frame_up(XtPhraseEditor *p, const XtTrack *t)
+{
+	if (p->frame <= 0) p->frame = t->num_frames - 1;
+	else p->frame--;
+}
+
+static void cursor_down(XtPhraseEditor *p, const XtTrack *t, bool allow_frame)
 {
 	if (p->row >= t->phrase_length - 1)
 	{
-		p->row = 0;
-		if (p->frame >= t->num_frames - 1) p->frame = 0;
-		else p->frame++;
+		if (allow_frame)
+		{
+			p->row = 0;
+			frame_down(p, t);
+		}
 	}
 	else
 	{
@@ -67,13 +82,15 @@ static void cursor_down(XtPhraseEditor *p, const XtTrack *t)
 	}
 }
 
-static void cursor_up(XtPhraseEditor *p, const XtTrack *t)
+static void cursor_up(XtPhraseEditor *p, const XtTrack *t, bool allow_frame)
 {
 	if (p->row <= 0)
 	{
-		p->row = t->phrase_length - 1;
-		if (p->frame <= 0) p->frame = t->num_frames - 1;
-		else p->frame--;
+		if (allow_frame)
+		{
+			p->row = t->phrase_length - 1;
+			frame_up(p, t);
+		}
 	}
 	else
 	{
@@ -81,35 +98,44 @@ static void cursor_up(XtPhraseEditor *p, const XtTrack *t)
 	}
 }
 
-static void cursor_column_right(XtPhraseEditor *p, const XtTrack *t)
+static bool cursor_column_right(XtPhraseEditor *p, const XtTrack *t, bool wrap)
 {
 	p->column++;
 	// TODO: Respect dynamic channel count
-	if (p->column >= ARRAYSIZE(t->channel_data)) p->column = 0;
+	if (p->column >= ARRAYSIZE(t->channel_data))
+	{
+		p->column = (wrap ? 0 : p->column - 1);
+		return wrap;
+	}
+	return true;
 }
 
-static void cursor_right(XtPhraseEditor *p, const XtTrack *t)
+static void cursor_right(XtPhraseEditor *p, const XtTrack *t, bool wrap)
 {
 	p->sub_pos++;
 	if (p->sub_pos >= CURSOR_SUBPOS_MAX_INVALID)
 	{
-		p->sub_pos = 0;
-		cursor_column_right(p, t);
+		if (cursor_column_right(p, t, wrap)) p->sub_pos = 0;
+		else p->sub_pos--;
 	}
 }
 
-static void cursor_column_left(XtPhraseEditor *p, const XtTrack *t)
+static bool cursor_column_left(XtPhraseEditor *p, const XtTrack *t, bool wrap)
 {
-	if (p->column <= 0) p->column = ARRAYSIZE(t->channel_data) - 1;
+	if (p->column <= 0)
+	{
+		if (wrap) p->column = ARRAYSIZE(t->channel_data) - 1;
+		return wrap;
+	}
 	else p->column--;
+	return true;
 }
 
-static void cursor_left(XtPhraseEditor *p, const XtTrack *t)
+static void cursor_left(XtPhraseEditor *p, const XtTrack *t, bool wrap)
 {
 	if (p->sub_pos <= 0)
 	{
-		p->sub_pos = CURSOR_SUBPOS_MAX_INVALID - 1;
-		cursor_column_left(p, t);
+		if (cursor_column_left(p, t, wrap)) p->sub_pos = CURSOR_SUBPOS_MAX_INVALID - 1;
 	}
 	else
 	{
@@ -157,23 +183,7 @@ static void cursor_update_cam_column(XtPhraseEditor *p)
 	}
 }
 
-/*
-// Redraw the cursor base as needed
-static void cursor_update_nt(XtPhraseEditor *p)
-{
-	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
-	const uint8_t hl_pal = 1;
-	if (!p->base_cursor_line_drawn)
-	{
-		for (int16_t i = 3; i < 512 / 8; i++)
-		{
-			nt1[i] = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
-		}
-		p->base_cursor_line_drawn = true;
-	}
-}*/
-
-static void draw_cursor_with_nt1(const XtPhraseEditor *p)
+static void draw_normal_cursor(const XtPhraseEditor *p)
 {
 	int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
 	const int16_t draw_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
@@ -186,44 +196,41 @@ static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 			break;
 		case CURSOR_SUBPOS_NOTE:
 			xt_cursor_set(draw_x, draw_y, 3, 1, -1, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
 			xt_cursor_set(draw_x, draw_y, 2, 1, 0, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
 			draw_x -= 8;
 			xt_cursor_set(draw_x, draw_y, 2, 1, 1, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_CMD1:
 			xt_cursor_set(draw_x, draw_y, 3, 1, 0, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_HIGH:
 			draw_x -= 8;
 			xt_cursor_set(draw_x, draw_y, 3, 1, 1, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_LOW:
 			draw_x -= 16;
 			xt_cursor_set(draw_x, draw_y, 3, 1, 2, line_hl);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 	}
+}
+
+static void draw_select_region(const XtPhraseEditor *p)
+{
+	int16_t from_x = get_x_for_column(p->select.from_column, p->select.from_sub_pos) - xt_phrase_editor_get_cam_x(p);
+	int16_t to_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
+	if (p->sub_pos == CURSOR_SUBPOS_NOTE) to_x += 2 * XT_RENDER_CELL_W_PIXELS;
+
+	const int16_t from_y = (p->select.from_row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+	const int16_t to_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+
+	const int16_t sel_w = (to_x - from_x) / XT_RENDER_CELL_W_PIXELS;
+	const int16_t sel_h = (to_y - from_y) / XT_RENDER_CELL_H_PIXELS;
+
+	xt_cursor_set(from_x, from_y, sel_w + 1, sel_h + 1, -1, false);
 
 }
 
@@ -459,58 +466,87 @@ static inline bool handle_command_entry(XtPhraseEditor *p, XtTrack *t,
 }
 
 // ============================================================================
+// Select logic.
+// ============================================================================
+
+static void enter_select(XtPhraseEditor *p)
+{
+	p->select.from_row = p->row;
+	p->select.from_column = p->column;
+	p->select.from_sub_pos = p->sub_pos;
+
+	p->state = EDITOR_SELECTING;
+}
+
+// ============================================================================
 // Event handling.
 // ============================================================================
+
+
+static void on_key_set_mode(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
+{
+	switch (e.name)
+	{
+		case XT_KEY_DOWN:
+		case XT_KEY_UP:
+		case XT_KEY_LEFT:
+		case XT_KEY_RIGHT:
+			if (e.modifiers & XT_KEY_MOD_SHIFT)
+			{
+				if (p->state != EDITOR_SELECTING)
+				{
+					enter_select(p);
+				}
+			}
+			else
+			{
+				p->state = EDITOR_NORMAL;
+			}
+			break;
+		case XT_KEY_ESC:
+			p->state = EDITOR_NORMAL;
+			break;
+		default:
+			break;
+	}
+}
+
 static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 {
 	switch (e.name)
 	{
 		// Navigation keys.
 		case XT_KEY_DOWN:
-			cursor_down(p, t);
+			cursor_down(p, t, true);
 			break;
 		case XT_KEY_UP:
-			cursor_up(p, t);
-			break;
-		case XT_KEY_R_UP:
-			for (int16_t i = 0; i < ROLL_SCROLL_MAGNITUDE; i++)
-			{
-				cursor_up(p, t);
-			}
-			break;
-		case XT_KEY_R_DOWN:
-			for (int16_t i = 0; i < ROLL_SCROLL_MAGNITUDE; i++)
-			{
-				cursor_down(p, t);
-			}
+			cursor_up(p, t, true);
 			break;
 		case XT_KEY_RIGHT:
-			if (e.modifiers & XT_KEY_MOD_SHIFT)
-			{
-				// TODO: Selection block
-			}
 			if (e.modifiers & XT_KEY_MOD_CTRL)
 			{
-				cursor_column_right(p, t);
+				cursor_column_right(p, t, true);
 			}
 			else
 			{
-				cursor_right(p, t);
+				cursor_right(p, t, true);
 			}
 			break;
 		case XT_KEY_LEFT:
-			if (e.modifiers & XT_KEY_MOD_SHIFT)
-			{
-				// TODO: Selection block
-			}
 			if (e.modifiers & XT_KEY_MOD_CTRL)
 			{
-				cursor_column_left(p, t);
+				cursor_column_left(p, t, true);
 			}
 			else
 			{
-				cursor_left(p, t);
+				cursor_left(p, t, true);
 			}
+			break;
+		case XT_KEY_R_UP:
+			frame_up(p, t);
+			break;
+		case XT_KEY_R_DOWN:
+			frame_down(p, t);
 			break;
 		case XT_KEY_HOME:
 			p->row = 0;
@@ -538,7 +574,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 			if (handle_note_entry(p, t, e))
 			{
 				p->channel_dirty[p->column] = true;
-				cursor_down(p, t);
+				cursor_down(p, t, true);
 			}
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
@@ -546,7 +582,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 			if (handle_number_entry(p, t, e))
 			{
 				p->channel_dirty[p->column] = true;
-				cursor_right(p, t);
+				cursor_right(p, t, true);
 			}
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
@@ -554,15 +590,15 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 			if (handle_number_entry(p, t, e))
 			{
 				p->channel_dirty[p->column] = true;
-				cursor_down(p, t);
-				cursor_left(p, t);
+				cursor_down(p, t, true);
+				cursor_left(p, t, true);
 			}
 			break;
 		case CURSOR_SUBPOS_CMD1:
 			if (handle_command_entry(p, t, e))
 			{
 				p->channel_dirty[p->column] = true;
-				cursor_right(p, t);
+				cursor_right(p, t, true);
 			}
 			break;
 		default:
@@ -570,17 +606,61 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 	}
 
 	cursor_update_cam_column(p);
-	draw_cursor_with_nt1(p);
+	draw_normal_cursor(p);
+}
+
+static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
+{
+	switch (e.name)
+	{
+		// Navigation keys.
+		case XT_KEY_DOWN:
+			cursor_down(p, t, false);
+			break;
+		case XT_KEY_UP:
+			cursor_up(p, t, false);
+			break;
+		case XT_KEY_RIGHT:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				cursor_column_right(p, t, false);
+			}
+			else
+			{
+				cursor_right(p, t, false);
+			}
+			break;
+		case XT_KEY_LEFT:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				cursor_column_left(p, t, false);
+			}
+			else
+			{
+				cursor_left(p, t, false);
+			}
+			break;
+		default:
+			break;
+	}
+
+	cursor_update_cam_column(p);
+	draw_select_region(p);
 }
 
 void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 {
+	on_key_set_mode(p, t, e);
+
 	switch (p->state)
 	{
-		default:
-			break;
 		case EDITOR_NORMAL:
 			normal_on_key(p, t, e);
+			break;
+		case EDITOR_SELECTING:
+			selecting_on_key(p, t, e);
+			break;
+		default:
 			break;
 	}
 }

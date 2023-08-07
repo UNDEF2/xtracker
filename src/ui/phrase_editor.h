@@ -42,6 +42,13 @@ typedef struct XtPhraseEditor
 	//       in order to support greater scrolling.
 	// TODO: Clipboard buffer, and all that...
 
+	struct
+	{
+		int16_t from_row;
+		int16_t from_column;
+		XtEditorCursorSubPos from_sub_pos;
+	} select;
+
 	// Left-most column index on-screen. This is "pushed" when the cursor is
 	// >= 5 columns away.
 	int16_t cam_column;

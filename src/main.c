@@ -233,7 +233,7 @@ int main(int argc, char **argv)
 				case XT_KEY_HELP:
 					display_config_cycle_modes();
 					break;
-				case XT_KEY_ESC:
+				case XT_KEY_BREAK:
 					quit = true;
 					break;
 				// Focus changes

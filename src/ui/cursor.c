@@ -13,6 +13,7 @@ typedef struct XtUiCursorState
 	int16_t h;
 	int16_t tile_hl;
 	bool line_hl;
+	bool dirty;
 } XtUiCursorState;
 
 XtUiCursorState s_state;
@@ -43,10 +44,14 @@ void xt_cursor_set(int16_t x, int16_t y, int16_t w, int16_t h, int16_t tile_hl, 
 	s_state.h = h;
 	s_state.tile_hl = tile_hl;
 	s_state.line_hl = line_hl;
+	s_state.dirty = true;
 }
 
 void xt_cursor_update(void)
 {
+	if (!s_state.dirty) return;
+	s_state.dirty = false;
+
 	// Erase the cursor from before.
 	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
 	for (int16_t ty = 0; ty < s_state_prev.h; ty++)
@@ -92,9 +97,10 @@ void xt_cursor_update(void)
 	{
 		for (int16_t ty = 0; ty < s_state.h; ty++)
 		{
+			volatile uint16_t *nt_line = &nt1[ty * 512/8];
 			for (int16_t tx = 0; tx < s_state.w; tx++)
 			{
-				*nt1++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x81);
+				*nt_line++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x81);
 			}
 		}
 	}
@@ -102,9 +108,10 @@ void xt_cursor_update(void)
 	{
 		for (int16_t ty = 0; ty < s_state.h; ty++)
 		{
+			volatile uint16_t *nt_line = &nt1[ty * 512/8];
 			for (int16_t tx = 0; tx < s_state.w; tx++)
 			{
-				*nt1++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, (tx == s_state.tile_hl) ? 0x81 : 0x82);
+				*nt_line++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, (tx == s_state.tile_hl) ? 0x81 : 0x82);
 			}
 		}
 	}
