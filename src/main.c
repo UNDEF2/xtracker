@@ -14,9 +14,11 @@
 #include "common.h"
 #include "cgprint.h"
 #include "core/display_config.h"
+#include "util/txprint.h"
+#include "ui/arrange_render.h"
+#include "ui/cursor.h"
 #include "ui/fnlabels.h"
 #include "ui/track_render.h"
-#include "ui/arrange_render.h"
 #include "xt.h"
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
@@ -42,6 +44,10 @@ void draw_mock_ui(void)
 	ui_fnlabel_set(2, "META");
 	ui_fnlabel_set(3, "INSTR");
 	ui_fnlabel_set(4, "ARRANGE");
+
+	txprintf(0, 0, 1, "Top left.");
+	txprintf(1, 1, 1, "The ol one and one.");
+	txprintf(30, 12, 1, "Middleish. ");
 }
 
 void set_demo_instruments(void)
@@ -148,6 +154,7 @@ int main(int argc, char **argv)
 	_dos_super(0);
 
 	display_config_init();
+	txprint_init();
 
 	cgprint_load("RES\\CGFNT8.BIN");
 
@@ -160,6 +167,7 @@ int main(int argc, char **argv)
 	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
 	xt_keys_init(&s_keys);
 	xt_phrase_editor_init(&s_phrase_editor, &s_xt.track);
+	xt_cursor_init();
 
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
@@ -187,6 +195,8 @@ int main(int argc, char **argv)
 		xt_keys_poll(&s_keys);
 
 		XtKeyEvent key_event;
+
+		XtUiFocus next_focus = focus;
 
 		while (xt_keys_event_pop(&s_keys, &key_event))
 		{
@@ -226,8 +236,21 @@ int main(int argc, char **argv)
 				case XT_KEY_ESC:
 					quit = true;
 					break;
+				// Focus changes
+				case XT_KEY_F2:
+					focus = XT_UI_FOCUS_PATTERN_EDIT;
+					break;
+				case XT_KEY_F4:
+					focus = XT_UI_FOCUS_INSTRUMENT_LIST;
+					break;
+				case XT_KEY_F5:
+					focus = XT_UI_FOCUS_META_EDIT;
+					break;
 			}
 		}
+
+		// TODO: Gate focus change based on open dialogues
+		focus = next_focus;
 
 		//
 		// Main engine poll.
@@ -237,10 +260,12 @@ int main(int argc, char **argv)
 		xt_poll(&s_xt);
 		xt_update_opm_registers(&s_xt);
 
+		// Rendering is done during VBlank, ideally.
+		xt_irq_wait_vbl();
+
 		//
 		// Rendering.
 		//
-
 		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
 		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
 
@@ -258,11 +283,8 @@ int main(int argc, char **argv)
 		}
 
 		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
+		xt_cursor_update();
 
-		//
-		// Wait for next frame.
-		//
-		xt_irq_wait_vbl();
 		elapsed++;
 	}
 

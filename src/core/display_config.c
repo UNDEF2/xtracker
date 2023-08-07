@@ -5,6 +5,7 @@
 #include "xbase/crtc.h"
 #include "xbase/util/display.h"
 
+#include <dos.h>
 #include <iocs.h>
 #include <string.h>
 

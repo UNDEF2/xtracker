@@ -1,12 +1,11 @@
 #include "xt_phrase_editor.h"
 #include "xt_keys.h"
+#include "ui/cursor.h"
 #include "common.h"
 
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
-
-#include <xbase/pcg.h>
 
 #include <dos.h>
 
@@ -158,6 +157,7 @@ static void cursor_update_cam_column(XtPhraseEditor *p)
 	}
 }
 
+/*
 // Redraw the cursor base as needed
 static void cursor_update_nt(XtPhraseEditor *p)
 {
@@ -171,56 +171,60 @@ static void cursor_update_nt(XtPhraseEditor *p)
 		}
 		p->base_cursor_line_drawn = true;
 	}
-}
+}*/
 
 static void draw_cursor_with_nt1(const XtPhraseEditor *p)
 {
-	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
-	const uint8_t hl_pal = 1;
-
 	int16_t draw_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
 	const int16_t draw_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+
+	const bool line_hl = true;
 
 	switch (p->sub_pos)
 	{
 		default:
 			break;
 		case CURSOR_SUBPOS_NOTE:
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+			xt_cursor_set(draw_x, draw_y, 3, 1, -1, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
+			xt_cursor_set(draw_x, draw_y, 2, 1, 0, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
 			draw_x -= 8;
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
+			xt_cursor_set(draw_x, draw_y, 2, 1, 1, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x80);
 			break;
 		case CURSOR_SUBPOS_CMD1:
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+			xt_cursor_set(draw_x, draw_y, 3, 1, 0, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_HIGH:
 			draw_x -= 8;
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+			xt_cursor_set(draw_x, draw_y, 3, 1, 1, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
 			break;
 		case CURSOR_SUBPOS_ARG1_LOW:
 			draw_x -= 16;
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
-			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
+			xt_cursor_set(draw_x, draw_y, 3, 1, 2, line_hl);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x82);
+//			*nt1++ = XB_PCG_ATTR(0, 0, hl_pal, 0x81);
 			break;
 	}
-	xb_pcg_set_bg1_xscroll(-draw_x);
-	xb_pcg_set_bg1_yscroll(-draw_y);
+
 }
 
 // ============================================================================
@@ -566,7 +570,6 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 	}
 
 	cursor_update_cam_column(p);
-	cursor_update_nt(p);
 	draw_cursor_with_nt1(p);
 }
 

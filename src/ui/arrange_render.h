@@ -5,8 +5,8 @@
 
 #include <stdbool.h>
 
-#define XT_ARRANGE_RENDER_X 8
-#define XT_ARRANGE_RENDER_Y 24
+#define XT_ARRANGE_RENDER_X 6
+#define XT_ARRANGE_RENDER_Y 4
 
 /*
 
