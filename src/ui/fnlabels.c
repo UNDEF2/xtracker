@@ -3,6 +3,7 @@
 
 void ui_fnlabel_set(uint16_t i, const char *s)
 {
+	if (i >= 10) return;
 	static const int16_t box_w = 1 + 6 * 7;
 	static const int16_t box_h = 9;
 	static const int16_t box_x_margin = 6;

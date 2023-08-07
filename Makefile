@@ -79,26 +79,27 @@ $(OUTDIR)/$(APPNAME).X: $(OBJECTS_C) $(OBJECTS_ASM) resources
 # On the X68000 side, run SUSIE.X <Drive>: -ID<SCSI ID>
 # To find the SCSI ID, just run SUSIE.X without arguments.
 upload: $(OUTDIR)/$(APPNAME).X
-	mkdir -p target_mount
+	mkdir -p mo_mnt
 	-sudo umount $(TARGET_DEV)
-	sudo mount $(TARGET_DEV) target_mount
-	sudo rm -rf target_mount/*
-	sudo cp -r $(OUTDIR)/* target_mount/
+	sudo mount $(TARGET_DEV) mo_mnt
+	sudo rm -rf mo_mnt/*
+	sudo cp -r $(OUTDIR)/* mo_mnt/
 	sync
 	sudo umount $(TARGET_DEV)
 
-$(OUTDIR)/mo_image.mos: $(OUTDIR)/$(APPNAME).X resources
-	mkdir -p mo_image
+mo_image.mos: $(OUTDIR)/$(APPNAME).X resources
+	mkdir -p mo_mnt
 	unzip empty_mo.zip
-	mv empty_mo.mos $(OUTDIR)/mo_image.mos
-	sudo mount $(OUTDIR)/mo_image.mos mo_image
-	sudo cp -r $(OUTDIR)/* mo_image/
+	mv empty_mo.mos $@
+	sudo mount $@ mo_mnt
+	sudo cp -r $(OUTDIR)/* mo_mnt/
 	sync
-	sudo umount mo_image
-	sudo rm -r mo_image
+	sudo umount mo_mnt
+	sync
+	sudo rmdir mo_mnt
 
-image: $(OUTDIR)/mo_image.mos
-	sudo dd if=mo_image.mos of=$(TARGET_DEV) bs=512 status=progress
+image: mo_image.mos
+	sudo dd if=$< of=$(TARGET_DEV) bs=512 status=progress
 
 $(OBJDIR)/%.o: %.c $(SOURCES_H)
 	@mkdir -p $(OBJDIR)/$(<D)

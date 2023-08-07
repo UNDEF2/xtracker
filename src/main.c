@@ -38,13 +38,6 @@ static XtPhraseEditor s_phrase_editor;
 
 void draw_mock_ui(void)
 {
-	// Draw bottom legend
-	ui_fnlabel_set(0, "FILE");
-	ui_fnlabel_set(1, "PATTERN");
-	ui_fnlabel_set(2, "META");
-	ui_fnlabel_set(3, "INSTR");
-	ui_fnlabel_set(4, "ARRANGE");
-
 	txprintf(64-9, 0, 1, "XTracker ");
 }
 
@@ -147,6 +140,30 @@ typedef enum XtUiFocus
 	XT_UI_FOCUS_ADPCM_FILE,
 } XtUiFocus;
 
+void maybe_set_fnlabels(XtUiFocus next_focus, XtUiFocus focus)
+{
+	if (next_focus == focus) return;
+	switch (next_focus)
+	{
+		case XT_UI_FOCUS_PATTERN_EDIT:
+			ui_fnlabel_set(0, "Note -");
+			ui_fnlabel_set(1, "Note +");
+			ui_fnlabel_set(2, "Exp/Shk");
+			ui_fnlabel_set(3, "Push");
+			ui_fnlabel_set(4, "SetInst");
+			break;
+		default:
+			break;
+	}
+
+	ui_fnlabel_set(5, "FILE");
+	ui_fnlabel_set(6, "PATTERN");
+	ui_fnlabel_set(7, "META");
+	ui_fnlabel_set(8, "INSTR");
+	ui_fnlabel_set(9, "ARRANGE");
+
+}
+
 int main(int argc, char **argv)
 {
 	_dos_super(0);
@@ -178,7 +195,8 @@ int main(int argc, char **argv)
 
 	draw_mock_ui();
 
-	XtUiFocus focus = XT_UI_FOCUS_PATTERN_EDIT;
+	XtUiFocus focus = -1;
+	XtUiFocus next_focus = XT_UI_FOCUS_PATTERN_EDIT;
 
 	uint32_t elapsed = 0;
 	bool quit = false;
@@ -194,7 +212,8 @@ int main(int argc, char **argv)
 
 		XtKeyEvent key_event;
 
-		XtUiFocus next_focus = focus;
+		maybe_set_fnlabels(next_focus, focus);
+		focus = next_focus;
 
 		while (xt_keys_event_pop(&s_keys, &key_event))
 		{
@@ -235,20 +254,19 @@ int main(int argc, char **argv)
 					quit = true;
 					break;
 				// Focus changes
-				case XT_KEY_F2:
+				case XT_KEY_F7:
 					focus = XT_UI_FOCUS_PATTERN_EDIT;
 					break;
-				case XT_KEY_F4:
+				case XT_KEY_F9:
 					focus = XT_UI_FOCUS_INSTRUMENT_LIST;
 					break;
-				case XT_KEY_F5:
+				case XT_KEY_F10:
 					focus = XT_UI_FOCUS_META_EDIT;
 					break;
 			}
 		}
 
-		// TODO: Gate focus change based on open dialogues
-		focus = next_focus;
+		// TODO: On focus change, request repaints
 
 		//
 		// Main engine poll.

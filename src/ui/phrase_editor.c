@@ -3,6 +3,8 @@
 #include "ui/cursor.h"
 #include "common.h"
 
+#include "ui/fnlabels.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
@@ -489,22 +491,88 @@ static void enter_select(XtPhraseEditor *p)
 	p->state = EDITOR_SELECTING;
 }
 
-static void select_copy(XtPhraseEditor *p, XtTrack *t)
+// Sets the select rectangle coordinates and row/col counts.
+static void select_region_sub(XtPhraseEditor *p,
+                              uint16_t *lesser_row, uint16_t *greater_row,
+                              uint16_t *row_count,
+                              uint16_t *lesser_column, uint16_t *greater_column,
+                              uint16_t *column_count)
 {
 	const uint16_t from_row = p->select.from_row;
 	const uint16_t to_row = p->row;
-	const uint16_t lesser_row = (to_row >= from_row) ? from_row : to_row;
-	const uint16_t greater_row = (to_row >= from_row) ? to_row : from_row;
-	const uint16_t row_count = 1 + greater_row - lesser_row;
-
-	p->copy.rows = row_count;
+	if (to_row >= from_row)
+	{
+		*lesser_row = from_row;
+		*greater_row = to_row;
+	}
+	else
+	{
+		*lesser_row = to_row;
+		*greater_row = from_row;
+	}
+	*row_count = 1 + *greater_row - *lesser_row;
 
 	const uint16_t from_column = p->select.from_column;
 	const uint16_t to_column = p->column;
-	const uint16_t lesser_column = (to_column >= from_column) ? from_column : to_column;
-	const uint16_t greater_column = (to_column >= from_column) ? to_column : from_column;
-	const uint16_t column_count = 1 + greater_column - lesser_column;
+	if (to_column >= from_column)
+	{
+		*lesser_column = from_column;
+		*greater_column = to_column;
+	}
+	else
+	{
+		*lesser_column = to_column;
+		*greater_column = from_column;
+	}
+	*column_count = 1 + *greater_column - *lesser_column;
+}
 
+// Sets the left and right subposition ranges based upon selection dimensions.
+static void select_subpos_sub(XtPhraseEditor *p,
+                              XtEditorCursorSubPos *left_sub_pos,
+                              XtEditorCursorSubPos *right_sub_pos)
+{
+	if (p->select.from_column < p->column)
+	{
+		*left_sub_pos = p->select.from_sub_pos;
+		*right_sub_pos = p->sub_pos;
+	}
+	else if (p->select.from_column > p->column)
+	{
+		*left_sub_pos = p->sub_pos;
+		*right_sub_pos = p->select.from_sub_pos;
+	}
+	else
+	{
+		*left_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->sub_pos : p->select.from_sub_pos;
+		*right_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->select.from_sub_pos : p->sub_pos;
+	}
+}
+
+// Based upon which column is being checked, the range of subpositions to be
+// iterated through is set.
+static void select_limit_subpos_by_col_sub(XtPhraseEditor *p,
+                                           uint16_t column, uint16_t column_count,
+                                           XtEditorCursorSubPos base_left_sub_pos,
+                                           XtEditorCursorSubPos base_right_sub_pos,
+                                           XtEditorCursorSubPos *new_left_sub_pos,
+                                           XtEditorCursorSubPos *new_right_sub_pos)
+{
+	const bool left_edge = (column == 0);
+	const bool right_edge = (column == column_count - 1);
+
+	*new_left_sub_pos = left_edge ? base_left_sub_pos : CURSOR_SUBPOS_NOTE;
+	*new_right_sub_pos = right_edge ? base_right_sub_pos : CURSOR_SUBPOS_ARG1_LOW;
+}
+
+// Performs a copy from the selected region.
+static void select_copy(XtPhraseEditor *p, XtTrack *t)
+{
+	uint16_t lesser_row, greater_row, row_count;
+	uint16_t lesser_column, greater_column, column_count;
+	select_region_sub(p, &lesser_row, &greater_row, &row_count,
+	                  &lesser_column, &greater_column, &column_count);
+	p->copy.rows = row_count;
 	p->copy.columns = column_count;
 
 	// copy takes all data from relevant columns, without regard for sub position.
@@ -520,88 +588,36 @@ static void select_copy(XtPhraseEditor *p, XtTrack *t)
 		}
 	}
 
-	// sub position data is stored separately and interpreted when pasting.
-	if (from_column < to_column)
-	{
-		p->copy.left_sub_pos = p->select.from_sub_pos;
-		p->copy.right_sub_pos = p->sub_pos;
-	}
-	else if (to_column > from_column)
-	{
-		p->copy.left_sub_pos = p->sub_pos;
-		p->copy.right_sub_pos = p->select.from_sub_pos;
-	}
-	else
-	{
-		p->copy.left_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->sub_pos : p->select.from_sub_pos;
-		p->copy.right_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->select.from_sub_pos : p->sub_pos;
-	}
+	select_subpos_sub(p, &p->copy.left_sub_pos, &p->copy.right_sub_pos);
 }
 
+// Deletes data within the selected region, with respect to subpos.
 static void select_delete(XtPhraseEditor *p, XtTrack *t)
 {
-	const uint16_t from_row = p->select.from_row;
-	const uint16_t to_row = p->row;
-	const uint16_t lesser_row = (to_row >= from_row) ? from_row : to_row;
-	const uint16_t greater_row = (to_row >= from_row) ? to_row : from_row;
-	const uint16_t row_count = 1 + greater_row - lesser_row;
+	uint16_t lesser_row, greater_row, row_count;
+	uint16_t lesser_column, greater_column, column_count;
+	select_region_sub(p, &lesser_row, &greater_row, &row_count,
+	                  &lesser_column, &greater_column, &column_count);
 
-	const uint16_t from_column = p->select.from_column;
-	const uint16_t to_column = p->column;
-	const uint16_t lesser_column = (to_column >= from_column) ? from_column : to_column;
-	const uint16_t greater_column = (to_column >= from_column) ? to_column : from_column;
-	const uint16_t column_count = 1 + greater_column - lesser_column;
-
-	XtEditorCursorSubPos sel_left_sub_pos = CURSOR_SUBPOS_NOTE;
-	XtEditorCursorSubPos sel_right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
-
-	// sub position data is stored separately and interpreted when pasting.
-	if (from_column < to_column)
-	{
-		sel_left_sub_pos = p->select.from_sub_pos;
-		sel_right_sub_pos = p->sub_pos;
-	}
-	else if (to_column > from_column)
-	{
-		sel_left_sub_pos = p->sub_pos;
-		sel_right_sub_pos = p->select.from_sub_pos;
-	}
-	else
-	{
-		sel_left_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->sub_pos : p->select.from_sub_pos;
-		sel_right_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->select.from_sub_pos : p->sub_pos;
-	}
+	XtEditorCursorSubPos sel_left_sub_pos, sel_right_sub_pos;
+	select_subpos_sub(p, &sel_left_sub_pos, &sel_right_sub_pos);
 
 	for (uint16_t column = 0; column < column_count; column++)
 	{
-		if (lesser_column + column >= XT_TOTAL_CHANNEL_COUNT) continue;
-		XtPhrase *dest_phrase = xt_track_get_phrase(t, lesser_column + column, p->frame);
+		const uint16_t col_idx = lesser_column + column;
+		if (col_idx >= XT_TOTAL_CHANNEL_COUNT) continue;
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, col_idx, p->frame);
 		for (uint16_t row = 0; row < row_count; row++)
 		{
-			if (lesser_row + row >= XT_PHRASE_MAX_ROWS) continue;
-			XtCell *dest_cell = &dest_phrase->cells[lesser_row + row];
+			const uint16_t row_idx = lesser_row + row;
+			if (row_idx >= XT_PHRASE_MAX_ROWS) continue;
+			XtCell *dest_cell = &dest_phrase->cells[row_idx];
 
-			XtEditorCursorSubPos left_sub_pos = CURSOR_SUBPOS_NOTE;
-			XtEditorCursorSubPos right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
-
-			const bool left_edge = (column == 0);
-			const bool right_edge = (column == column_count - 1);
-
-			if (left_edge && !right_edge)
-			{
-				left_sub_pos = sel_left_sub_pos;
-				right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
-			}
-			else if (!left_edge && right_edge)
-			{
-				left_sub_pos = CURSOR_SUBPOS_NOTE;
-				right_sub_pos = sel_right_sub_pos;
-			}
-			else if (left_edge && right_edge)
-			{
-				left_sub_pos = sel_left_sub_pos;
-				right_sub_pos = sel_right_sub_pos;
-			}
+			XtEditorCursorSubPos left_sub_pos;
+			XtEditorCursorSubPos right_sub_pos;
+			select_limit_subpos_by_col_sub(p, column, column_count,
+			                               sel_left_sub_pos, sel_right_sub_pos,
+			                               &left_sub_pos, &right_sub_pos);
 
 			for (XtEditorCursorSubPos sub = left_sub_pos; sub < right_sub_pos + 1; sub++)
 			{
@@ -610,36 +626,32 @@ static void select_delete(XtPhraseEditor *p, XtTrack *t)
 					case CURSOR_SUBPOS_NOTE:
 						dest_cell->note = XT_NOTE_NONE;
 						break;
-						
 					case CURSOR_SUBPOS_INSTRUMENT_HIGH:
 						dest_cell->inst &= 0x0F;
 						break;
-
 					case CURSOR_SUBPOS_INSTRUMENT_LOW:
 						dest_cell->inst &= 0xF0;
 						break;
-
 					case CURSOR_SUBPOS_CMD1:
 						dest_cell->cmd[0].cmd = XT_CMD_NONE;
 						break;
-
 					case CURSOR_SUBPOS_ARG1_HIGH:
 						dest_cell->cmd[0].arg &= 0x0F;
 						break;
-
 					case CURSOR_SUBPOS_ARG1_LOW:
 						dest_cell->cmd[0].arg &= 0xF0;
 						break;
-
-				default:
-					break;
+					default:
+						break;
 				}
 			}
 		}
-		p->channel_dirty[lesser_column + column] = true;
+
+		p->channel_dirty[col_idx] = true;
 	}
 }
 
+// Pastes data at the cursor position, with respect to subpos.
 static void paste(XtPhraseEditor *p, XtTrack *t)
 {
 	const uint16_t row_count = p->copy.rows;
@@ -647,38 +659,23 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 
 	for (uint16_t column = 0; column < column_count; column++)
 	{
-		if (p->column + column >= XT_TOTAL_CHANNEL_COUNT) continue;
+		const uint16_t col_idx = p->column + column;
+		if (col_idx >= XT_TOTAL_CHANNEL_COUNT) continue;
 		const XtPhrase *src_phrase = &p->copy.phrase_buffer[column];
-		XtPhrase *dest_phrase = xt_track_get_phrase(t, p->column + column, p->frame);
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, col_idx, p->frame);
 
 		for (uint16_t row = 0; row < row_count; row++)
 		{
-			if (p->row + row >= XT_PHRASE_MAX_ROWS) continue;
+			const uint16_t row_idx = p->row + row;
+			if (row_idx >= XT_PHRASE_MAX_ROWS) continue;
 			const XtCell *src_cell = &src_phrase->cells[row];
-			XtCell *dest_cell = &dest_phrase->cells[p->row + row];
+			XtCell *dest_cell = &dest_phrase->cells[row_idx];
 
-			// Check for edge cases.
-			XtEditorCursorSubPos left_sub_pos = CURSOR_SUBPOS_NOTE;
-			XtEditorCursorSubPos right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
-
-			const bool left_edge = (column == 0);
-			const bool right_edge = (column == column_count - 1);
-
-			if (left_edge && !right_edge)
-			{
-				left_sub_pos = p->copy.left_sub_pos;
-				right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
-			}
-			else if (!left_edge && right_edge)
-			{
-				left_sub_pos = CURSOR_SUBPOS_NOTE;
-				right_sub_pos = p->copy.right_sub_pos;
-			}
-			else if (left_edge && right_edge)
-			{
-				left_sub_pos = p->copy.left_sub_pos;
-				right_sub_pos = p->copy.right_sub_pos;
-			}
+			XtEditorCursorSubPos left_sub_pos;
+			XtEditorCursorSubPos right_sub_pos;
+			select_limit_subpos_by_col_sub(p, column, column_count,
+			                               p->copy.left_sub_pos, p->copy.right_sub_pos,
+			                               &left_sub_pos, &right_sub_pos);
 
 			for (XtEditorCursorSubPos sub = left_sub_pos; sub < right_sub_pos + 1; sub++)
 			{
@@ -687,39 +684,120 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 					case CURSOR_SUBPOS_NOTE:
 						dest_cell->note = src_cell->note;
 						break;
-						
 					case CURSOR_SUBPOS_INSTRUMENT_HIGH:
 						dest_cell->inst &= 0x0F;
 						dest_cell->inst |= src_cell->inst & 0xF0;
 						break;
-
 					case CURSOR_SUBPOS_INSTRUMENT_LOW:
 						dest_cell->inst &= 0xF0;
 						dest_cell->inst |= src_cell->inst & 0x0F;
 						break;
-
 					case CURSOR_SUBPOS_CMD1:
 						dest_cell->cmd[0].cmd = src_cell->cmd[0].cmd;
 						break;
-
 					case CURSOR_SUBPOS_ARG1_HIGH:
 						dest_cell->cmd[0].arg &= 0x0F;
 						dest_cell->cmd[0].arg |= src_cell->cmd[0].arg & 0xF0;
 						break;
-
 					case CURSOR_SUBPOS_ARG1_LOW:
 						dest_cell->cmd[0].arg &= 0xF0;
 						dest_cell->cmd[0].arg |= src_cell->cmd[0].arg & 0x0F;
 						break;
-
-				default:
-					break;
+					default:
+						break;
 				}
 			}
 		}
 
-		p->channel_dirty[p->column + column] = true;
+		p->channel_dirty[col_idx] = true;
 		dest_phrase->phrase_valid = true;
+	}
+}
+
+// ============================================================================
+// Transposition.
+// ============================================================================
+
+static void transpose_cell_sub(XtCell *cell, int16_t semitones)
+{
+	if (cell->note == XT_NOTE_NONE) return;
+	int16_t octave = ((cell->note & XT_NOTE_OCTAVE_MASK) >> 4) + semitones / 12;
+	int16_t tone = (cell->note & XT_NOTE_TONE_MASK);
+
+	if (semitones > 0)
+	{
+		semitones = semitones % 12;
+		tone += semitones;
+		if (tone > XT_NOTE_B)
+		{
+			if (octave < 7)
+			{
+				tone -= XT_NOTE_B;
+				octave++;
+			}
+			else
+			{
+				tone = XT_NOTE_B;
+			}
+		}
+	}
+	else if (semitones < 0)
+	{
+		semitones = -semitones;
+		semitones = semitones % 12;
+
+		tone -= semitones;
+		if (tone < 0)
+		{
+			if (octave > 0)
+			{
+				tone += XT_NOTE_B;
+				octave--;
+			}
+			else
+			{
+				tone = XT_NOTE_C;
+			}
+		}
+	}
+
+	if (octave >= 8) octave = 7;
+	else if (octave < 0) octave = 0;
+
+	cell->note = (octave << 4) | tone;
+}
+
+static void transpose(XtPhraseEditor *p, XtTrack *t,
+                      int16_t semitones, bool use_selection)
+{
+	if (!use_selection)
+	{
+		XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
+		XtCell *cell = &phrase->cells[p->row];
+		transpose_cell_sub(cell, semitones);
+		p->channel_dirty[p->column] = true;
+		return;
+	}
+
+	uint16_t lesser_row, greater_row, row_count;
+	uint16_t lesser_column, greater_column, column_count;
+	select_region_sub(p, &lesser_row, &greater_row, &row_count,
+	                  &lesser_column, &greater_column, &column_count);
+
+	for (uint16_t column = 0; column < column_count; column++)
+	{
+		const uint16_t col_idx = lesser_column + column;
+		if (col_idx >= XT_TOTAL_CHANNEL_COUNT) continue;
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, col_idx, p->frame);
+		for (uint16_t row = 0; row < row_count; row++)
+		{
+			const uint16_t row_idx = lesser_row + row;
+			if (row_idx >= XT_PHRASE_MAX_ROWS) continue;
+			XtCell *dest_cell = &dest_phrase->cells[row_idx];
+			transpose_cell_sub(dest_cell, semitones);
+		}
+
+		p->channel_dirty[lesser_column + column] = true;
 	}
 }
 
@@ -776,7 +854,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 	bool note_entry_ok = true;
 	switch (e.name)
 	{
-		// Navigation keys.
+		// Navigation.
 		case XT_KEY_DOWN:
 			cursor_down(p, t, true);
 			break;
@@ -803,6 +881,7 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 				cursor_left(p, t, true);
 			}
 			break;
+		// Frame navigation.
 		case XT_KEY_R_UP:
 			frame_up(p, t);
 			break;
@@ -825,6 +904,14 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case XT_KEY_NUMPAD_MINUS:
 			if (p->instrument > 0) p->instrument--;
 			break;
+		// Transposition.
+		case XT_KEY_F1:
+			transpose(p, t, (e.modifiers & XT_KEY_MOD_CTRL) ? -12 : -1, false);
+			break;
+		case XT_KEY_F2:
+			transpose(p, t, (e.modifiers & XT_KEY_MOD_CTRL) ? +12 : +1, false);
+			break;
+		// Copy / paste.
 		case XT_KEY_V:
 			if (e.modifiers & XT_KEY_MOD_CTRL)
 			{
@@ -907,6 +994,7 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 	if (e.name != XT_KEY_A) p->select.ctrl_a_step = 0;
 	switch (e.name)
 	{
+		// Selection rectangle modification.
 		case XT_KEY_DOWN:
 			cursor_down(p, t, false);
 			break;
@@ -933,6 +1021,7 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 				cursor_left(p, t, false);
 			}
 			break;
+		// Select All (stepped)
 		case XT_KEY_A:
 			if (e.modifiers & XT_KEY_MOD_CTRL)
 			{
@@ -950,6 +1039,15 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 				}
 				p->select.ctrl_a_step++;
 			}
+			break;
+		// Transposition.
+		case XT_KEY_F1:
+			transpose(p, t, (e.modifiers & XT_KEY_MOD_CTRL) ? -12 : -1, true);
+			break;
+		case XT_KEY_F2:
+			transpose(p, t, (e.modifiers & XT_KEY_MOD_CTRL) ? +12 : +1, true);
+			break;
+		// Copy / Paste.
 		case XT_KEY_C:
 			if (e.modifiers & XT_KEY_MOD_CTRL)
 			{
