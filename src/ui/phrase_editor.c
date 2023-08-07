@@ -1,4 +1,4 @@
-#include "xt_phrase_editor.h"
+#include "ui/phrase_editor.h"
 #include "xt_keys.h"
 #include "ui/cursor.h"
 #include "common.h"

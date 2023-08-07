@@ -1,5 +1,5 @@
-#ifndef _XT_PHRASE_EDITOR_H
-#define _XT_PHRASE_EDITOR_H
+#ifndef UI_PHRASE_EDITOR_H
+#define UI_PHRASE_EDITOR_H
 
 #include "xt_track.h"
 #include "ui/track_render.h"
@@ -62,4 +62,4 @@ void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);
 
-#endif  // _XT_PHRASE_EDITOR_H
+#endif  // UI_PHRASE_EDITOR_H
