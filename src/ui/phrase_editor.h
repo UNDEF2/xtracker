@@ -44,10 +44,21 @@ typedef struct XtPhraseEditor
 
 	struct
 	{
+		int16_t ctrl_a_step;
 		int16_t from_row;
 		int16_t from_column;
 		XtEditorCursorSubPos from_sub_pos;
 	} select;
+
+	// Buffer for copy/paste, spanning the size of one screen.
+	struct
+	{
+		XtPhrase phrase_buffer[XT_TOTAL_CHANNEL_COUNT];
+		XtEditorCursorSubPos left_sub_pos;
+		XtEditorCursorSubPos right_sub_pos;
+		int16_t rows;
+		int16_t columns;
+	} copy;
 
 	// Left-most column index on-screen. This is "pushed" when the cursor is
 	// >= 5 columns away.
@@ -55,8 +66,6 @@ typedef struct XtPhraseEditor
 
 	int16_t visible_channels;
 	int16_t total_channels;
-
-	bool base_cursor_line_drawn;
 } XtPhraseEditor;
 
 void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t);

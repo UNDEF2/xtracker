@@ -242,7 +242,6 @@ static void draw_select_region(const XtPhraseEditor *p)
 	const int16_t sel_w = 1 + (greater_x - lesser_x) / XT_RENDER_CELL_W_PIXELS;
 	const int16_t sel_h = 1 + (greater_y - lesser_y) / XT_RENDER_CELL_H_PIXELS;
 	xt_cursor_set(lesser_x, lesser_y, sel_w, sel_h, -1, false);
-
 }
 
 // ============================================================================
@@ -485,14 +484,248 @@ static void enter_select(XtPhraseEditor *p)
 	p->select.from_row = p->row;
 	p->select.from_column = p->column;
 	p->select.from_sub_pos = p->sub_pos;
+	p->select.ctrl_a_step = 0;
 
 	p->state = EDITOR_SELECTING;
+}
+
+static void select_copy(XtPhraseEditor *p, XtTrack *t)
+{
+	const uint16_t from_row = p->select.from_row;
+	const uint16_t to_row = p->row;
+	const uint16_t lesser_row = (to_row >= from_row) ? from_row : to_row;
+	const uint16_t greater_row = (to_row >= from_row) ? to_row : from_row;
+	const uint16_t row_count = 1 + greater_row - lesser_row;
+
+	p->copy.rows = row_count;
+
+	const uint16_t from_column = p->select.from_column;
+	const uint16_t to_column = p->column;
+	const uint16_t lesser_column = (to_column >= from_column) ? from_column : to_column;
+	const uint16_t greater_column = (to_column >= from_column) ? to_column : from_column;
+	const uint16_t column_count = 1 + greater_column - lesser_column;
+
+	p->copy.columns = column_count;
+
+	// copy takes all data from relevant columns, without regard for sub position.
+	for (uint16_t column = 0; column < column_count; column++)
+	{
+		const XtPhrase *src_phrase = xt_track_get_phrase(t, column + lesser_column, p->frame);
+		XtPhrase *dest_phrase = &p->copy.phrase_buffer[column];
+		for (uint16_t row = 0; row < row_count; row++)
+		{
+			const XtCell *src_cell = &src_phrase->cells[row + lesser_row];
+			XtCell *dest_cell = &dest_phrase->cells[row];
+			*dest_cell = *src_cell;
+		}
+	}
+
+	// sub position data is stored separately and interpreted when pasting.
+	if (from_column < to_column)
+	{
+		p->copy.left_sub_pos = p->select.from_sub_pos;
+		p->copy.right_sub_pos = p->sub_pos;
+	}
+	else if (to_column > from_column)
+	{
+		p->copy.left_sub_pos = p->sub_pos;
+		p->copy.right_sub_pos = p->select.from_sub_pos;
+	}
+	else
+	{
+		p->copy.left_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->sub_pos : p->select.from_sub_pos;
+		p->copy.right_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->select.from_sub_pos : p->sub_pos;
+	}
+}
+
+static void select_delete(XtPhraseEditor *p, XtTrack *t)
+{
+	const uint16_t from_row = p->select.from_row;
+	const uint16_t to_row = p->row;
+	const uint16_t lesser_row = (to_row >= from_row) ? from_row : to_row;
+	const uint16_t greater_row = (to_row >= from_row) ? to_row : from_row;
+	const uint16_t row_count = 1 + greater_row - lesser_row;
+
+	const uint16_t from_column = p->select.from_column;
+	const uint16_t to_column = p->column;
+	const uint16_t lesser_column = (to_column >= from_column) ? from_column : to_column;
+	const uint16_t greater_column = (to_column >= from_column) ? to_column : from_column;
+	const uint16_t column_count = 1 + greater_column - lesser_column;
+
+	XtEditorCursorSubPos sel_left_sub_pos = CURSOR_SUBPOS_NOTE;
+	XtEditorCursorSubPos sel_right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+
+	// sub position data is stored separately and interpreted when pasting.
+	if (from_column < to_column)
+	{
+		sel_left_sub_pos = p->select.from_sub_pos;
+		sel_right_sub_pos = p->sub_pos;
+	}
+	else if (to_column > from_column)
+	{
+		sel_left_sub_pos = p->sub_pos;
+		sel_right_sub_pos = p->select.from_sub_pos;
+	}
+	else
+	{
+		sel_left_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->sub_pos : p->select.from_sub_pos;
+		sel_right_sub_pos = (p->sub_pos < p->select.from_sub_pos) ? p->select.from_sub_pos : p->sub_pos;
+	}
+
+	for (uint16_t column = 0; column < column_count; column++)
+	{
+		if (lesser_column + column >= XT_TOTAL_CHANNEL_COUNT) continue;
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, lesser_column + column, p->frame);
+		for (uint16_t row = 0; row < row_count; row++)
+		{
+			if (lesser_row + row >= XT_PHRASE_MAX_ROWS) continue;
+			XtCell *dest_cell = &dest_phrase->cells[lesser_row + row];
+
+			XtEditorCursorSubPos left_sub_pos = CURSOR_SUBPOS_NOTE;
+			XtEditorCursorSubPos right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+
+			const bool left_edge = (column == 0);
+			const bool right_edge = (column == column_count - 1);
+
+			if (left_edge && !right_edge)
+			{
+				left_sub_pos = sel_left_sub_pos;
+				right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+			}
+			else if (!left_edge && right_edge)
+			{
+				left_sub_pos = CURSOR_SUBPOS_NOTE;
+				right_sub_pos = sel_right_sub_pos;
+			}
+			else if (left_edge && right_edge)
+			{
+				left_sub_pos = sel_left_sub_pos;
+				right_sub_pos = sel_right_sub_pos;
+			}
+
+			for (XtEditorCursorSubPos sub = left_sub_pos; sub < right_sub_pos + 1; sub++)
+			{
+				switch (sub)
+				{
+					case CURSOR_SUBPOS_NOTE:
+						dest_cell->note = XT_NOTE_NONE;
+						break;
+						
+					case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+						dest_cell->inst &= 0x0F;
+						break;
+
+					case CURSOR_SUBPOS_INSTRUMENT_LOW:
+						dest_cell->inst &= 0xF0;
+						break;
+
+					case CURSOR_SUBPOS_CMD1:
+						dest_cell->cmd[0].cmd = XT_CMD_NONE;
+						break;
+
+					case CURSOR_SUBPOS_ARG1_HIGH:
+						dest_cell->cmd[0].arg &= 0x0F;
+						break;
+
+					case CURSOR_SUBPOS_ARG1_LOW:
+						dest_cell->cmd[0].arg &= 0xF0;
+						break;
+
+				default:
+					break;
+				}
+			}
+		}
+		p->channel_dirty[lesser_column + column] = true;
+	}
+}
+
+static void paste(XtPhraseEditor *p, XtTrack *t)
+{
+	const uint16_t row_count = p->copy.rows;
+	const uint16_t column_count = p->copy.columns;
+
+	for (uint16_t column = 0; column < column_count; column++)
+	{
+		if (p->column + column >= XT_TOTAL_CHANNEL_COUNT) continue;
+		const XtPhrase *src_phrase = &p->copy.phrase_buffer[column];
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, p->column + column, p->frame);
+
+		for (uint16_t row = 0; row < row_count; row++)
+		{
+			if (p->row + row >= XT_PHRASE_MAX_ROWS) continue;
+			const XtCell *src_cell = &src_phrase->cells[row];
+			XtCell *dest_cell = &dest_phrase->cells[p->row + row];
+
+			// Check for edge cases.
+			XtEditorCursorSubPos left_sub_pos = CURSOR_SUBPOS_NOTE;
+			XtEditorCursorSubPos right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+
+			const bool left_edge = (column == 0);
+			const bool right_edge = (column == column_count - 1);
+
+			if (left_edge && !right_edge)
+			{
+				left_sub_pos = p->copy.left_sub_pos;
+				right_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+			}
+			else if (!left_edge && right_edge)
+			{
+				left_sub_pos = CURSOR_SUBPOS_NOTE;
+				right_sub_pos = p->copy.right_sub_pos;
+			}
+			else if (left_edge && right_edge)
+			{
+				left_sub_pos = p->copy.left_sub_pos;
+				right_sub_pos = p->copy.right_sub_pos;
+			}
+
+			for (XtEditorCursorSubPos sub = left_sub_pos; sub < right_sub_pos + 1; sub++)
+			{
+				switch (sub)
+				{
+					case CURSOR_SUBPOS_NOTE:
+						dest_cell->note = src_cell->note;
+						break;
+						
+					case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+						dest_cell->inst &= 0x0F;
+						dest_cell->inst |= src_cell->inst & 0xF0;
+						break;
+
+					case CURSOR_SUBPOS_INSTRUMENT_LOW:
+						dest_cell->inst &= 0xF0;
+						dest_cell->inst |= src_cell->inst & 0x0F;
+						break;
+
+					case CURSOR_SUBPOS_CMD1:
+						dest_cell->cmd[0].cmd = src_cell->cmd[0].cmd;
+						break;
+
+					case CURSOR_SUBPOS_ARG1_HIGH:
+						dest_cell->cmd[0].arg &= 0x0F;
+						dest_cell->cmd[0].arg |= src_cell->cmd[0].arg & 0xF0;
+						break;
+
+					case CURSOR_SUBPOS_ARG1_LOW:
+						dest_cell->cmd[0].arg &= 0xF0;
+						dest_cell->cmd[0].arg |= src_cell->cmd[0].arg & 0x0F;
+						break;
+
+				default:
+					break;
+				}
+			}
+		}
+
+		p->channel_dirty[p->column + column] = true;
+		dest_phrase->phrase_valid = true;
+	}
 }
 
 // ============================================================================
 // Event handling.
 // ============================================================================
-
 
 static void on_key_set_mode(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 {
@@ -514,9 +747,25 @@ static void on_key_set_mode(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 				p->state = EDITOR_NORMAL;
 			}
 			break;
+
+		case XT_KEY_A:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				if (p->state != EDITOR_SELECTING)
+				{
+					enter_select(p);
+				}
+			}
+			else
+			{
+				p->state = EDITOR_NORMAL;
+			}
+			break;
+
 		case XT_KEY_ESC:
 			p->state = EDITOR_NORMAL;
 			break;
+
 		default:
 			break;
 	}
@@ -524,6 +773,7 @@ static void on_key_set_mode(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 
 static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 {
+	bool note_entry_ok = true;
 	switch (e.name)
 	{
 		// Navigation keys.
@@ -575,45 +825,77 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		case XT_KEY_NUMPAD_MINUS:
 			if (p->instrument > 0) p->instrument--;
 			break;
+		case XT_KEY_V:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				paste(p, t);
+				note_entry_ok = false;
+			}
+			break;
+		case XT_KEY_C:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				p->select.from_row = p->row;
+				p->select.from_column = p->column;
+				p->select.from_sub_pos = p->sub_pos;
+				select_copy(p, t);
+				note_entry_ok = false;
+			}
+			break;
+		case XT_KEY_X:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				p->select.from_row = p->row;
+				p->select.from_column = p->column;
+				p->select.from_sub_pos = p->sub_pos;
+				select_copy(p, t);
+				select_delete(p, t);
+				note_entry_ok = false;
+			}
+			break;
 		default:
 			break;
 	}
-	// Entry.
-	switch (p->sub_pos)
+
+	// Note entry.
+	if (note_entry_ok)
 	{
-		case CURSOR_SUBPOS_NOTE:
-			if (handle_note_entry(p, t, e))
-			{
-				p->channel_dirty[p->column] = true;
-				cursor_down(p, t, true);
-			}
-			break;
-		case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-		case CURSOR_SUBPOS_ARG1_HIGH:
-			if (handle_number_entry(p, t, e))
-			{
-				p->channel_dirty[p->column] = true;
-				cursor_right(p, t, true);
-			}
-			break;
-		case CURSOR_SUBPOS_INSTRUMENT_LOW:
-		case CURSOR_SUBPOS_ARG1_LOW:
-			if (handle_number_entry(p, t, e))
-			{
-				p->channel_dirty[p->column] = true;
-				cursor_down(p, t, true);
-				cursor_left(p, t, true);
-			}
-			break;
-		case CURSOR_SUBPOS_CMD1:
-			if (handle_command_entry(p, t, e))
-			{
-				p->channel_dirty[p->column] = true;
-				cursor_right(p, t, true);
-			}
-			break;
-		default:
-			break;
+		switch (p->sub_pos)
+		{
+			case CURSOR_SUBPOS_NOTE:
+				if (handle_note_entry(p, t, e))
+				{
+					p->channel_dirty[p->column] = true;
+					cursor_down(p, t, true);
+				}
+				break;
+			case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+			case CURSOR_SUBPOS_ARG1_HIGH:
+				if (handle_number_entry(p, t, e))
+				{
+					p->channel_dirty[p->column] = true;
+					cursor_right(p, t, true);
+				}
+				break;
+			case CURSOR_SUBPOS_INSTRUMENT_LOW:
+			case CURSOR_SUBPOS_ARG1_LOW:
+				if (handle_number_entry(p, t, e))
+				{
+					p->channel_dirty[p->column] = true;
+					cursor_down(p, t, true);
+					cursor_left(p, t, true);
+				}
+				break;
+			case CURSOR_SUBPOS_CMD1:
+				if (handle_command_entry(p, t, e))
+				{
+					p->channel_dirty[p->column] = true;
+					cursor_right(p, t, true);
+				}
+				break;
+			default:
+				break;
+		}
 	}
 
 	cursor_update_cam_column(p);
@@ -622,9 +904,9 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 
 static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 {
+	if (e.name != XT_KEY_A) p->select.ctrl_a_step = 0;
 	switch (e.name)
 	{
-		// Navigation keys.
 		case XT_KEY_DOWN:
 			cursor_down(p, t, false);
 			break;
@@ -649,6 +931,45 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 			else
 			{
 				cursor_left(p, t, false);
+			}
+			break;
+		case XT_KEY_A:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				if (p->select.ctrl_a_step == 0)
+				{
+					p->sub_pos = CURSOR_SUBPOS_NOTE;
+					p->row = 0;
+					p->select.from_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+					p->select.from_row = XT_PHRASE_MAX_ROWS - 1;
+				}
+				else if (p->select.ctrl_a_step == 1)
+				{
+					p->column = 0;
+					p->select.from_column = XT_TOTAL_CHANNEL_COUNT - 1;
+				}
+				p->select.ctrl_a_step++;
+			}
+		case XT_KEY_C:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				select_copy(p, t);
+			}
+			break;
+		case XT_KEY_X:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				select_copy(p, t);
+				select_delete(p, t);
+			}
+			break;
+		case XT_KEY_DEL:
+			select_delete(p, t);
+			break;
+		case XT_KEY_V:
+			if (e.modifiers & XT_KEY_MOD_CTRL)
+			{
+				paste(p, t);
 			}
 			break;
 		default:

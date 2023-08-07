@@ -45,9 +45,7 @@ void draw_mock_ui(void)
 	ui_fnlabel_set(3, "INSTR");
 	ui_fnlabel_set(4, "ARRANGE");
 
-	txprintf(0, 0, 1, "Top left.");
-	txprintf(1, 1, 1, "The ol one and one.");
-	txprintf(30, 12, 1, "Middleish. ");
+	txprintf(64-9, 0, 1, "XTracker ");
 }
 
 void set_demo_instruments(void)

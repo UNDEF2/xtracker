@@ -41,6 +41,8 @@ void xt_cursor_set(uint16_t x, uint16_t y, int16_t w, int16_t h, int16_t tile_hl
 {
 	if (w <= 0) w = 1;
 	if (h <= 0) h = 1;
+	if (h >= XT_RENDER_NT_CHARS) h = XT_RENDER_NT_CHARS - 1;
+	if (w >= XT_RENDER_NT_CHARS) w = XT_RENDER_NT_CHARS - 1;
 	s_state.x = x % (XT_RENDER_NT_CHARS * XT_RENDER_CELL_W_PIXELS);
 	s_state.y = y % (XT_RENDER_NT_CHARS * XT_RENDER_CELL_H_PIXELS);
 	s_state.w = w;
@@ -52,16 +54,15 @@ void xt_cursor_set(uint16_t x, uint16_t y, int16_t w, int16_t h, int16_t tile_hl
 
 static void draw_rect(uint16_t x, uint16_t y, int16_t w, int16_t h, uint16_t val)
 {
+	if ((x / XT_RENDER_CELL_W_PIXELS) + w >= XT_RENDER_NT_CHARS) w = XT_RENDER_NT_CHARS - 1 - (x / XT_RENDER_CELL_W_PIXELS);
+	if ((y / XT_RENDER_CELL_H_PIXELS) + h >= XT_RENDER_NT_CHARS) h = XT_RENDER_NT_CHARS - 1 - (y / XT_RENDER_CELL_H_PIXELS);
 	volatile uint16_t *nt1 = (volatile uint16_t *)XB_PCG_BG1_NAME;
-	if (s_state.tile_hl < 0)
+	for (int16_t ty = 0; ty < s_state.h; ty++)
 	{
-		for (int16_t ty = 0; ty < s_state.h; ty++)
+		volatile uint16_t *nt_line = &nt1[ty * XT_RENDER_NT_CHARS];
+		for (int16_t tx = 0; tx < s_state.w; tx++)
 		{
-			volatile uint16_t *nt_line = &nt1[ty * XT_RENDER_NT_CHARS];
-			for (int16_t tx = 0; tx < s_state.w; tx++)
-			{
-				*nt_line++ = val;
-			}
+			*nt_line++ = val;
 		}
 	}
 }
@@ -105,9 +106,12 @@ void xt_cursor_update(void)
 	if (s_state.line_hl)
 	{
 		volatile uint16_t *nt_line = &nt1[s_state.w];
-		for (int16_t tx = s_state.w; tx < s_state_prev.w; tx++)
+		if (s_state_prev.w < XT_RENDER_NT_CHARS)
 		{
-			*nt_line++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x80);
+			for (int16_t tx = s_state.w; tx < s_state_prev.w; tx++)
+			{
+				*nt_line++ = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x80);
+			}
 		}
 	}
 
@@ -119,8 +123,7 @@ void xt_cursor_update(void)
 	else
 	{
 		draw_rect(0, s_state.w, 0, s_state.h, XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x82));
-		volatile uint16_t *nt_tile = &nt1[s_state.tile_hl];
-		*nt_tile = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x81);
+		nt1[s_state.tile_hl] = XB_PCG_ATTR(0, 0, XT_CURSOR_HL_PAL, 0x81);
 	}
 
 	s_state_prev = s_state;
