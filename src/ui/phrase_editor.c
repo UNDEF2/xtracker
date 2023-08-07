@@ -222,15 +222,26 @@ static void draw_select_region(const XtPhraseEditor *p)
 {
 	int16_t from_x = get_x_for_column(p->select.from_column, p->select.from_sub_pos) - xt_phrase_editor_get_cam_x(p);
 	int16_t to_x = get_x_for_column(p->column, p->sub_pos) - xt_phrase_editor_get_cam_x(p);
-	if (p->sub_pos == CURSOR_SUBPOS_NOTE) to_x += 2 * XT_RENDER_CELL_W_PIXELS;
 
-	const int16_t from_y = (p->select.from_row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
-	const int16_t to_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+	if (from_x <= to_x && p->sub_pos == CURSOR_SUBPOS_NOTE) to_x += 2 * XT_RENDER_CELL_W_PIXELS;
+	else if (from_x > to_x && p->select.from_sub_pos == CURSOR_SUBPOS_NOTE) from_x += 2 * XT_RENDER_CELL_W_PIXELS;
 
-	const int16_t sel_w = (to_x - from_x) / XT_RENDER_CELL_W_PIXELS;
-	const int16_t sel_h = (to_y - from_y) / XT_RENDER_CELL_H_PIXELS;
+	int16_t from_y = (p->select.from_row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
+	int16_t to_y = (p->row * XT_RENDER_CELL_H_PIXELS) - xt_phrase_editor_get_cam_y(p);
 
-	xt_cursor_set(from_x, from_y, sel_w + 1, sel_h + 1, -1, false);
+	int16_t lesser_x = (from_x <= to_x) ? from_x : to_x;
+	int16_t lesser_y = (from_y <= to_y) ? from_y : to_y;
+	int16_t greater_x = (from_x > to_x) ? from_x : to_x;
+	int16_t greater_y = (from_y > to_y) ? from_y : to_y;
+
+	if (lesser_x < 0) lesser_x = 0;
+	if (lesser_y < 0) lesser_y = 0;
+	if (greater_x >= (XT_RENDER_NT_CHARS * XT_RENDER_CELL_W_PIXELS)) greater_x = (XT_RENDER_NT_CHARS * XT_RENDER_CELL_W_PIXELS);
+	if (greater_y >= (XT_RENDER_NT_CHARS * XT_RENDER_CELL_H_PIXELS)) greater_y = (XT_RENDER_NT_CHARS * XT_RENDER_CELL_H_PIXELS);
+
+	const int16_t sel_w = 1 + (greater_x - lesser_x) / XT_RENDER_CELL_W_PIXELS;
+	const int16_t sel_h = 1 + (greater_y - lesser_y) / XT_RENDER_CELL_H_PIXELS;
+	xt_cursor_set(lesser_x, lesser_y, sel_w, sel_h, -1, false);
 
 }
 
