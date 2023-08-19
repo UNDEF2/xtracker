@@ -32,13 +32,15 @@ typedef struct XtArrangeRenderer
 	int16_t row;  // The current row to be selected. Must always be valid.
 	int16_t column;  // The current column to highlight.
 
+	int16_t last_frame_count;
+
 	int16_t draw_x, draw_y;
 
 	bool border_drawn;
 } XtArrangeRenderer;
 
 // Set up the XtArrange struct for its first render and further use.
-void xt_arrange_renderer_init(XtArrangeRenderer *a, const XtTrack *t);
+void xt_arrange_renderer_init(XtArrangeRenderer *a);
 
 // Draw the arrangement table as-needed based on track data and the provided
 // navigation position. Pass -1 to the row or column parameters to not update
@@ -48,6 +50,8 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 
 // Mark all frames and the border as needing a redraw.
 void xt_arrange_renderer_redraw(XtArrangeRenderer *a);
+
+void xt_arrange_renderer_redraw_col(XtArrangeRenderer *a, int16_t col);
 
 #endif  // UI_ARRANGE_RENDER_H
 

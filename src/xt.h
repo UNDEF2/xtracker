@@ -34,35 +34,36 @@ typedef enum XtOpmKeyCommand
 
 typedef struct XtOpmChannelState
 {
+	// Voice properties.
 	XtOpmPatch patch;
 	int16_t patch_no;
 	XBOpmPan pan;
-
+	uint16_t voice;  // Hardware Voice / channel on the OPM.
 	bool patch_fresh;  // Patch was just set newly and needs to be fully set.
-	uint16_t voice;  // Voice / channel on the OPM.
 
-	XtMod mod_vibrato;
-	XtMod mod_tremolo;
-
-	uint16_t current_pitch;  // Set at the time a note is played.
-	uint16_t target_pitch;  // This is what is sent to the register.
-
-	// Pitch patch information calculated after processing pitch.
-	uint8_t reg_kc_data;
-	uint8_t reg_kf_data;
-
-	int16_t portamento_speed;
-	int16_t amplitude;
-
+	// Key state.
+	XtOpmKeyCommand key_command;
 	XtOpmKeyState key_state;
 	XtOpmKeyState key_state_prev;
 	int16_t key_on_delay_count;  // Decrements when nonzero on tick.
 	int16_t mute_delay_count;
 	int16_t cut_delay_count;
 
+	// Pitch data.
+	XtNote note;  // Note captured from cell data.
+	uint16_t current_pitch;  // Set at the time a note is played.
+	uint16_t target_pitch;  // This is what is sent to the register.
+	int16_t slide_speed;
+	// Pitch patch information calculated after processing pitch.
+	uint8_t reg_kc_data;
+	uint8_t reg_kf_data;
 	int8_t tune;  // Fine offset to be applied to pitch fraction.
 
-	XtOpmKeyCommand key_command;
+	int16_t amplitude;
+
+	// Modulation.
+	XtMod mod_vibrato;
+	XtMod mod_tremolo;
 } XtOpmChannelState;
 
 typedef struct XtChannelState

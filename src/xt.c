@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "xbase/opm.h"
+#include "util/transpose.h"
 
 //
 // OPM interaction functions
@@ -76,6 +77,24 @@ static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
 // Engine Functions
 //
 
+// Sets target pitch data based on a note value.
+static inline void xt_set_note_pitch_data(XtOpmChannelState *opm_state,
+                                          XtNote note)
+{
+	// convert {octave, note} to pitch number
+	// effectively a multiply by 12 since we started *16
+	uint16_t pnum = 3 * ((note & XT_NOTE_OCTAVE_MASK) >> 2);
+	// subtract off the offset applied when editing the note data
+	pnum += (note & XT_NOTE_TONE_MASK) - 1;
+	opm_state->note = note & XT_NOTE_TONE_MASK;
+	opm_state->target_pitch = (pnum << 6) | opm_state->tune;
+	if (opm_state->current_pitch == 0)
+	{
+		opm_state->current_pitch = opm_state->target_pitch;
+	}
+}
+
+// Command processing
 static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
@@ -133,10 +152,6 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			xb_opm_set_lr_fl_con(opm_state->voice, opm_state->pan, patch->fl, patch->con);
 			break;
 
-		case XT_CMD_PORTAMENTO:
-			opm_state->portamento_speed = (int8_t)arg;
-			break;
-
 		case XT_CMD_VIBRATO:
 			opm_state->mod_vibrato.intensity = arg & 0x0F;
 			opm_state->mod_vibrato.speed = (arg >> 4);
@@ -153,9 +168,21 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			break;
 
 		case XT_CMD_SLIDE_UP:
-			// TODO: This
+			opm_state->slide_speed = (arg & 0xF0) >> 4;
+			if (opm_state->slide_speed != 0)
+			{
+				opm_state->note = xt_transpose_note(opm_state->note, (arg & 0x0F));
+				xt_set_note_pitch_data(opm_state, opm_state->note);
+			}
+			break;
+
 		case XT_CMD_SLIDE_DOWN:
-			// TODO: This
+			opm_state->slide_speed = (arg & 0xF0) >> 4;
+			if (opm_state->slide_speed != 0)
+			{
+				opm_state->note = xt_transpose_note(opm_state->note, -(arg & 0x0F));
+				xt_set_note_pitch_data(opm_state, opm_state->note);
+			}
 			break;
 		case XT_CMD_MUTE_DELAY:
 			opm_state->mute_delay_count = arg;
@@ -171,6 +198,14 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 			opm_state->tune = arg;
 			break;
 	}
+}
+
+static inline void xt_note_off_reset(XtOpmChannelState *opm_state)
+{
+	opm_state->key_command = KEY_COMMAND_OFF;
+	opm_state->key_on_delay_count = 0;
+	opm_state->patch_no = -1;
+	opm_state->current_pitch = 0;
 }
 
 static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
@@ -189,25 +224,17 @@ static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
 	if (cell->note == XT_NOTE_OFF)
 	{
 		opm_state->key_state = KEY_STATE_OFF;
-		opm_state->key_command = KEY_COMMAND_OFF;
-		opm_state->key_on_delay_count = 0;
-		opm_state->patch_no = -1;
+		xt_note_off_reset(opm_state);
 	}
 	else if (cell->note == XT_NOTE_CUT)
 	{
 		opm_state->key_state = KEY_STATE_CUT;
-		opm_state->key_command = KEY_COMMAND_OFF;
-		opm_state->key_on_delay_count = 0;
-		opm_state->patch_no = -1;
+		xt_note_off_reset(opm_state);
 	}
 	else
 	{
-		// convert {octave, note} to pitch number
-		// effectively a multiply by 12 since we started *16
-		uint16_t pnum = 3*((cell->note & XT_NOTE_OCTAVE_MASK) >> 2);
-		// subtract off the offset applied when editing the note data
-		pnum += (cell->note & XT_NOTE_TONE_MASK) - 1;
-		opm_state->target_pitch = (pnum << 6) | opm_state->tune;
+		opm_state->current_pitch = 0;
+		xt_set_note_pitch_data(opm_state, cell->note);
 		opm_state->key_state = KEY_STATE_ON_PENDING;
 		opm_state->key_on_delay_count = 0;
 	}
@@ -360,23 +387,30 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 	xt_mod_tick(&opm_state->mod_vibrato);
 	xt_mod_tick(&opm_state->mod_tremolo);
 
-	if (opm_state->portamento_speed == 0)
+	if (opm_state->key_state == KEY_STATE_ON)
 	{
-		opm_state->current_pitch = opm_state->target_pitch;
-	}
-	else
-	{
-		if (opm_state->current_pitch < opm_state->target_pitch)
+		if (opm_state->slide_speed == 0)
 		{
-			opm_state->current_pitch += opm_state->portamento_speed;
-			if (opm_state->current_pitch > opm_state->target_pitch)
-				opm_state->current_pitch = opm_state->target_pitch;
+			opm_state->current_pitch = opm_state->target_pitch;
 		}
-		else if (opm_state->current_pitch > opm_state->target_pitch)
+		else
 		{
-			opm_state->current_pitch -= opm_state->portamento_speed;
 			if (opm_state->current_pitch < opm_state->target_pitch)
-				opm_state->current_pitch = opm_state->target_pitch;
+			{
+				opm_state->current_pitch += opm_state->slide_speed;
+				if (opm_state->current_pitch > opm_state->target_pitch)
+				{
+					opm_state->current_pitch = opm_state->target_pitch;
+				}
+			}
+			else if (opm_state->current_pitch > opm_state->target_pitch)
+			{
+				opm_state->current_pitch -= opm_state->slide_speed;
+				if (opm_state->current_pitch < opm_state->target_pitch)
+				{
+					opm_state->current_pitch = opm_state->target_pitch;
+				}
+			}
 		}
 	}
 

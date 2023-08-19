@@ -5,11 +5,11 @@
 #include "common.h"
 #include "xt_palette.h"
 
-static const int16_t krow_spacing = 8;
-static const int16_t kcol_spacing = 16;
+#define UI_ARRANGE_ROW_SPACING 8
+#define UI_ARRANGE_COL_SPACING 16
 
 // Set up the XtArrange struct for its first render and further use.
-void xt_arrange_renderer_init(XtArrangeRenderer *a, const XtTrack *t)
+void xt_arrange_renderer_init(XtArrangeRenderer *a)
 {
 	memset(a, 0, sizeof(*a));
 	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
@@ -42,15 +42,15 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 		int16_t y = a->draw_y;
 		const int16_t left_x = a->draw_x;
 		const int16_t right_x = left_x +
-		                        (kcol_spacing * ARRAYSIZE(a->frames[0].phrase_id)) + 2;
+		                        (UI_ARRANGE_COL_SPACING * ARRAYSIZE(a->frames[0].phrase_id)) + 2;
 		cgprint(0, XT_PAL_UI_BORDER,"Arrangement", left_x + 6, y);
-		y += krow_spacing;
+		y += UI_ARRANGE_ROW_SPACING;
 
 		for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
 		{
 			cgprint(0, XT_PAL_UI_BORDER, left_mapping[i], left_x, y);
 			cgprint(0, XT_PAL_UI_BORDER, right_mapping[i], right_x, y);
-			y += krow_spacing;
+			y += UI_ARRANGE_ROW_SPACING;
 		}
 
 		a->border_drawn = true;
@@ -65,7 +65,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 		a->column = col;
 	}
 
-	int16_t cell_y = a->draw_y + krow_spacing;
+	int16_t cell_y = a->draw_y + UI_ARRANGE_ROW_SPACING;
 
 	// Look for data that needs an update.
 	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
@@ -87,7 +87,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			{
 				if (current->phrase_id[j] == ref->phrase_id[j] && j != col)
 				{
-					cell_x += kcol_spacing;
+					cell_x += UI_ARRANGE_COL_SPACING;
 					continue;
 				}
 				current->phrase_id[j] = ref->phrase_id[j];
@@ -96,7 +96,14 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			{
 				if (current->phrase_id[j] == -1)
 				{
-					cell_x += kcol_spacing;
+					// If the frame count has changed since last time,
+					// erase inactive areas.
+					if (a->last_frame_count != t->num_frames)
+					{
+						cgprint(0, XT_PAL_UI_FG | CG_ATTR_OPAQUE, " ", cell_x, cell_y);
+					}
+
+					cell_x += UI_ARRANGE_COL_SPACING;
 					continue;
 				}
 				current->phrase_id[j] = -1;
@@ -105,7 +112,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			// Redraw the current phrase id.
 			if (current->phrase_id[j] == -1)
 			{
-				cgbox(0, XT_PAL_TRANSPARENT, cell_x, cell_y, cell_x + 12, cell_y + krow_spacing);
+				cgbox(0, XT_PAL_TRANSPARENT, cell_x, cell_y, cell_x + 12, cell_y + UI_ARRANGE_ROW_SPACING);
 			}
 			else
 			{
@@ -124,16 +131,24 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 				}
 			}
 
-			cell_x += kcol_spacing;
+			cell_x += UI_ARRANGE_COL_SPACING;
 		}
-		cell_y += krow_spacing;
+		cell_y += UI_ARRANGE_ROW_SPACING;
 	}
+
+	a->last_frame_count = t->num_frames;
 }
 
 // Mark all frames and the border as needing a redraw.
 void xt_arrange_renderer_redraw(XtArrangeRenderer *a)
 {
-	xt_arrange_renderer_init(a, NULL);
+	xt_arrange_renderer_init(a);
 }
 
-
+void xt_arrange_renderer_redraw_col(XtArrangeRenderer *a, int16_t col)
+{
+	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
+	{
+		a->frames[i].phrase_id[col] = -1;
+	}
+}

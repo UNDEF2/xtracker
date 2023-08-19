@@ -1,9 +1,10 @@
-#include "ui/phrase_editor.h"
+#include "phrase_editor.h"
 #include "xt_keys.h"
 #include "ui/cursor.h"
 #include "common.h"
 
 #include "ui/fnlabels.h"
+#include "util/transpose.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -439,8 +440,6 @@ static const XtKeyCommandPairing command_lookup[] =
 
 	{XT_KEY_O, XT_CMD_PAN},
 
-	{XT_KEY_P, XT_CMD_PORTAMENTO},
-
 	{XT_KEY_T, XT_CMD_TREMOLO},
 	{XT_KEY_V, XT_CMD_VIBRATO},
 	{XT_KEY_G, XT_CMD_TREMOLO_TYPE},
@@ -718,55 +717,6 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 // Transposition.
 // ============================================================================
 
-static void transpose_cell_sub(XtCell *cell, int16_t semitones)
-{
-	if (cell->note == XT_NOTE_NONE) return;
-	int16_t octave = ((cell->note & XT_NOTE_OCTAVE_MASK) >> 4) + semitones / 12;
-	int16_t tone = (cell->note & XT_NOTE_TONE_MASK);
-
-	if (semitones > 0)
-	{
-		semitones = semitones % 12;
-		tone += semitones;
-		if (tone > XT_NOTE_B)
-		{
-			if (octave < 7)
-			{
-				tone -= XT_NOTE_B;
-				octave++;
-			}
-			else
-			{
-				tone = XT_NOTE_B;
-			}
-		}
-	}
-	else if (semitones < 0)
-	{
-		semitones = -semitones;
-		semitones = semitones % 12;
-
-		tone -= semitones;
-		if (tone < 0)
-		{
-			if (octave > 0)
-			{
-				tone += XT_NOTE_B;
-				octave--;
-			}
-			else
-			{
-				tone = XT_NOTE_C;
-			}
-		}
-	}
-
-	if (octave >= 8) octave = 7;
-	else if (octave < 0) octave = 0;
-
-	cell->note = (octave << 4) | tone;
-}
-
 static void transpose(XtPhraseEditor *p, XtTrack *t,
                       int16_t semitones, bool use_selection)
 {
@@ -774,7 +724,7 @@ static void transpose(XtPhraseEditor *p, XtTrack *t,
 	{
 		XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
 		XtCell *cell = &phrase->cells[p->row];
-		transpose_cell_sub(cell, semitones);
+		cell->note = xt_transpose_note(cell->note, semitones);
 		p->channel_dirty[p->column] = true;
 		return;
 	}
@@ -794,7 +744,7 @@ static void transpose(XtPhraseEditor *p, XtTrack *t,
 			const uint16_t row_idx = lesser_row + row;
 			if (row_idx >= XT_PHRASE_MAX_ROWS) continue;
 			XtCell *dest_cell = &dest_phrase->cells[row_idx];
-			transpose_cell_sub(dest_cell, semitones);
+			dest_cell->note = xt_transpose_note(dest_cell->note, semitones);
 		}
 
 		p->channel_dirty[lesser_column + column] = true;
@@ -1093,4 +1043,13 @@ void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e)
 		default:
 			break;
 	}
+}
+
+void xt_phrase_editor_set_fnlabels(void)
+{
+	ui_fnlabel_set(0, "Note -");
+	ui_fnlabel_set(1, "Note +");
+	ui_fnlabel_set(2, "Exp/Shk");
+	ui_fnlabel_set(3, "Push");
+	ui_fnlabel_set(4, "SetInst");
 }

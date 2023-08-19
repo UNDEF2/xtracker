@@ -13,13 +13,16 @@
 
 #include "common.h"
 #include "cgprint.h"
+#include "phrase_editor.h"
+#include "arrange_editor.h"
 #include "core/display_config.h"
 #include "util/txprint.h"
 #include "ui/arrange_render.h"
 #include "ui/cursor.h"
 #include "ui/fnlabels.h"
-#include "ui/phrase_editor.h"
+#include "ui/instrument_render.h"
 #include "ui/track_render.h"
+
 #include "xt.h"
 #include "xt_keys.h"
 #include "xt_irq.h"
@@ -29,8 +32,10 @@
 static Xt s_xt;
 static XtKeys s_keys;
 static XtArrangeRenderer s_arrange_renderer;
+static XtInstrumentRenderer s_instrument_renderer;
 static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
+static XtArrangeEditor s_arrange_editor;
 
 //
 // Test Code
@@ -87,24 +92,14 @@ void set_demo_instruments(void)
 
 void set_demo_meta(void)
 {
-	s_xt.track.num_phrases = 16;
-
-	for (int i = 0; i < s_xt.track.num_phrases; i++)
-	{
-		for (int c = 0; c < 8; c++)
-		{
-			s_xt.track.frames[i].phrase_id[c] = i;
-		}
-	}
-
-	s_xt.track.num_frames = 64;
+	s_xt.track.num_frames = 1;
 	s_xt.track.num_instruments = 1;
 
 	s_xt.track.ticks_per_row = 6;
 	s_xt.track.timer_period = 0xABCD;
 
 	s_xt.track.phrase_length = 32;
-	s_xt.track.loop_point = 1;
+	s_xt.track.loop_point = 0;
 
 	for (int16_t i = 0; i < ARRAYSIZE(s_xt.track.channel_data); i++)
 	{
@@ -129,7 +124,6 @@ void set_demo_meta(void)
 // TODO: xt_ui.c
 typedef enum XtUiFocus
 {
-	XT_UI_TRACK_FILE,
 	XT_UI_FOCUS_PATTERN_EDIT,
 	XT_UI_FOCUS_ARRANGE_EDIT,
 	XT_UI_FOCUS_INSTRUMENT_LIST,
@@ -138,6 +132,7 @@ typedef enum XtUiFocus
 	XT_UI_FOCUS_META_EDIT,
 	XT_UI_FOCUS_ADPCM_MAPPING,
 	XT_UI_FOCUS_ADPCM_FILE,
+	XT_UI_TRACK_FILE,
 } XtUiFocus;
 
 void maybe_set_fnlabels(XtUiFocus next_focus, XtUiFocus focus)
@@ -146,22 +141,41 @@ void maybe_set_fnlabels(XtUiFocus next_focus, XtUiFocus focus)
 	switch (next_focus)
 	{
 		case XT_UI_FOCUS_PATTERN_EDIT:
-			ui_fnlabel_set(0, "Note -");
-			ui_fnlabel_set(1, "Note +");
-			ui_fnlabel_set(2, "Exp/Shk");
-			ui_fnlabel_set(3, "Push");
-			ui_fnlabel_set(4, "SetInst");
+			xt_phrase_editor_set_fnlabels();
+			break;
+		case XT_UI_FOCUS_ARRANGE_EDIT:
+			xt_arrange_editor_set_fnlabels();
 			break;
 		default:
 			break;
 	}
 
-	ui_fnlabel_set(5, "FILE");
-	ui_fnlabel_set(6, "PATTERN");
-	ui_fnlabel_set(7, "META");
-	ui_fnlabel_set(8, "INSTR");
-	ui_fnlabel_set(9, "ARRANGE");
+	ui_fnlabel_set(5, "File");
+	ui_fnlabel_set(6, "Pattern");
+	ui_fnlabel_set(7, "Instr");
+	ui_fnlabel_set(8, "Arrange");
+	ui_fnlabel_set(9, "Meta");
 
+}
+
+static void toggle_playback(XtKeyEvent key_event)
+{
+	if (s_xt.playing)
+	{
+		if (key_event.name == XT_KEY_CR)
+		{
+			xt_stop_playing(&s_xt);
+		}
+	}
+	else
+	{
+		if (key_event.name == XT_KEY_CR)
+		{
+			xt_start_playing(&s_xt, s_phrase_editor.frame,
+			                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
+		}
+		xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
+	}
 }
 
 int main(int argc, char **argv)
@@ -177,12 +191,14 @@ int main(int argc, char **argv)
 
 	xt_irq_init();
 	xt_palette_init();
+	xt_keys_init(&s_keys);
+	xt_cursor_init();
 
 	xt_track_renderer_init(&s_track_renderer);
-	xt_arrange_renderer_init(&s_arrange_renderer, &s_xt.track);
-	xt_keys_init(&s_keys);
+	xt_arrange_renderer_init(&s_arrange_renderer);
+	xt_arrange_editor_init(&s_arrange_editor, &s_arrange_renderer);
 	xt_phrase_editor_init(&s_phrase_editor, &s_xt.track);
-	xt_cursor_init();
+	xt_instrument_renderer_init(&s_instrument_renderer, &s_xt.track, &s_phrase_editor);
 
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
@@ -217,56 +233,74 @@ int main(int argc, char **argv)
 
 		while (xt_keys_event_pop(&s_keys, &key_event))
 		{
-			// Focus-specific key events.
-			switch (focus)
-			{
-				default:
-					break;
-				case XT_UI_FOCUS_PATTERN_EDIT:
-					if (s_xt.playing)
-					{
-						if (key_event.name == XT_KEY_CR)
-						{
-							xt_stop_playing(&s_xt);
-						}
-					}
-					else
-					{
-						if (key_event.name == XT_KEY_CR)
-						{
-							xt_start_playing(&s_xt, s_phrase_editor.frame,
-							                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
-						}
-						xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
-					}
-					break;
-			}
-
 			// General key inputs that are always active.
 			switch (key_event.name)
 			{
 				default:
 					break;
+				case XT_KEY_CR:
+					switch (focus)
+					{
+						case XT_UI_FOCUS_PATTERN_EDIT:
+							toggle_playback(key_event);
+
+						default:
+							break;
+					}
+
+					break;
+
 				case XT_KEY_HELP:
 					display_config_cycle_modes();
 					break;
+
 				case XT_KEY_BREAK:
 					quit = true;
 					break;
+
 				// Focus changes
 				case XT_KEY_F7:
-					focus = XT_UI_FOCUS_PATTERN_EDIT;
+					next_focus = XT_UI_FOCUS_PATTERN_EDIT;
 					break;
+
+				case XT_KEY_F8:
+					next_focus = XT_UI_FOCUS_INSTRUMENT_LIST;
+					break;
+
 				case XT_KEY_F9:
-					focus = XT_UI_FOCUS_INSTRUMENT_LIST;
+					next_focus = XT_UI_FOCUS_ARRANGE_EDIT;
 					break;
+
 				case XT_KEY_F10:
-					focus = XT_UI_FOCUS_META_EDIT;
+					next_focus = XT_UI_FOCUS_META_EDIT;
+					break;
+			}
+
+			// Forwarding of key events to focus areas.
+			switch (focus)
+			{
+				default:
+					break;
+
+				case XT_UI_FOCUS_PATTERN_EDIT:
+					if (!s_xt.playing)
+					{
+						xt_phrase_editor_on_key(&s_phrase_editor,
+					                            &s_xt.track, key_event);
+						s_arrange_editor.frame = s_phrase_editor.frame;
+						s_arrange_editor.column = s_phrase_editor.column;
+					}
+					break;
+
+				case XT_UI_FOCUS_ARRANGE_EDIT:
+					if (!s_xt.playing)
+					{
+						xt_arrange_editor_on_key(&s_arrange_editor,
+					                             &s_xt.track, key_event);
+					}
 					break;
 			}
 		}
-
-		// TODO: On focus change, request repaints
 
 		//
 		// Main engine poll.
@@ -278,12 +312,11 @@ int main(int argc, char **argv)
 
 		// Rendering is done during VBlank, ideally.
 		xt_irq_wait_vbl();
+		xt_cursor_update();
 
 		//
 		// Rendering.
 		//
-		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
-		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
 
 		if (s_xt.playing)
 		{
@@ -298,8 +331,10 @@ int main(int argc, char **argv)
 			xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
 		}
 
-		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_phrase_editor.frame, s_phrase_editor.column);
-		xt_cursor_update();
+		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
+		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
+		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_arrange_editor.frame, s_arrange_editor.column);
+		xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track, &s_phrase_editor);
 
 		elapsed++;
 	}

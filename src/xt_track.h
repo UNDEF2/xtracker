@@ -39,7 +39,6 @@ typedef enum XtCmd
 
 	XT_CMD_PAN = 'O',
 
-	XT_CMD_PORTAMENTO = 'P',
 	XT_CMD_TREMOLO = 'T',
 	XT_CMD_VIBRATO = 'V',
 	XT_CMD_TREMOLO_TYPE = 'G',
@@ -131,7 +130,6 @@ typedef struct XtTrack
 	XtFrame frames[XT_FRAME_COUNT];
 	// A "phrase" is a single collection of pattern data - notes, etc. Phrases
 	// are separated per-channel.
-	int16_t num_phrases;
 
 	// TODO: Dynamic channel count.
 	XtTrackChannelData channel_data[XT_TOTAL_CHANNEL_COUNT];
