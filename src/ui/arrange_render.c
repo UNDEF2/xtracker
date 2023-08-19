@@ -100,7 +100,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 					// erase inactive areas.
 					if (a->last_frame_count != t->num_frames)
 					{
-						cgprint(0, XT_PAL_UI_FG | CG_ATTR_OPAQUE, " ", cell_x, cell_y);
+						cgprint(0, XT_PAL_UI_FG | CG_ATTR_OPAQUE, "  ", cell_x, cell_y);
 					}
 
 					cell_x += UI_ARRANGE_COL_SPACING;
