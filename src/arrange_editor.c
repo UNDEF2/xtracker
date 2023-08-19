@@ -120,7 +120,7 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e)
 			push_frames_down(t, a->frame);
 			cursor_down(a, t);
 			// TODO: Don't use current, maybe. Updating it here is kind of hacky
-			current = &t->frames[a->frame]
+			current = &t->frames[a->frame];
 			for (int16_t i = 0; i < XT_TOTAL_CHANNEL_COUNT; i++)
 			{
 				if (current->phrase_id[i] < XT_PHRASES_PER_CHANNEL - 1) current->phrase_id[i]++;

@@ -7,13 +7,11 @@
 
 #include <stdbool.h>
 
-#define XT_INSTRUMENT_RENDER_X 256
-#define XT_INSTRUMENT_RENDER_Y 4
-
 typedef struct XtInstrumentRenderer
 {
 	// Data for currently drawn instrument.
 	XtInstrument data;
+	int16_t instr_num;
 
 	// Selection position.
 	int16_t row;
@@ -30,7 +28,7 @@ void xt_instrument_renderer_init(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEd
 // Draw the instrumentment table as-needed based on track data and the provided
 // navigation position. Pass -1 to the row or column parameters to not update
 // positioning.
-void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p);
+void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num);
 
 // Mark all frames and the border as needing a redraw.
 void xt_instrument_renderer_redraw(XtInstrumentRenderer *a);

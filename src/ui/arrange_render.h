@@ -5,9 +5,6 @@
 
 #include <stdbool.h>
 
-#define XT_ARRANGE_RENDER_X 6
-#define XT_ARRANGE_RENDER_Y 4
-
 /*
 
 Inputs:

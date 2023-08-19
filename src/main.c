@@ -178,6 +178,26 @@ static void toggle_playback(XtKeyEvent key_event)
 	}
 }
 
+static void hack_load_track(const char *fname)
+{
+	FILE *f = fopen(fname, "rb");
+	if (!f) return;
+
+	// fread(&s_xt.track, 1, sizeof(s_xt.track), f);
+
+	fclose(f);
+}
+
+static void hack_save_track(const char *fname)
+{
+	FILE *f = fopen(fname, "wb");
+	if (!f) return;
+
+	// fwrite(&s_xt.track, 1, sizeof(s_xt.track), f);
+
+	fclose(f);
+}
+
 int main(int argc, char **argv)
 {
 	_dos_super(0);
@@ -209,6 +229,16 @@ int main(int argc, char **argv)
 	set_demo_meta();
 	set_demo_instruments();
 
+	// HACK LOADING
+	const char *filename = NULL;
+
+	if (argc > 1)
+	{
+		filename = argv[1];
+	}
+
+	if (filename) hack_load_track(filename);
+
 	draw_mock_ui();
 
 	XtUiFocus focus = -1;
@@ -239,16 +269,7 @@ int main(int argc, char **argv)
 				default:
 					break;
 				case XT_KEY_CR:
-					switch (focus)
-					{
-						default:
-							toggle_playback(key_event);
-							break;
-
-						default:
-							break;
-					}
-
+					toggle_playback(key_event);
 					break;
 
 				case XT_KEY_HELP:
@@ -259,21 +280,30 @@ int main(int argc, char **argv)
 					quit = true;
 					break;
 
+				// Save
+				case XT_KEY_F6:
+					if (filename) hack_save_track(filename);
+					break;
+
 				// Focus changes
 				case XT_KEY_F7:
 					next_focus = XT_UI_FOCUS_PATTERN_EDIT;
+					txprintf(64-9, 0, 1, "Pattern  ");
 					break;
 
 				case XT_KEY_F8:
 					next_focus = XT_UI_FOCUS_INSTRUMENT_LIST;
+					txprintf(64-9, 0, 1, "Instr.   ");
 					break;
 
 				case XT_KEY_F9:
 					next_focus = XT_UI_FOCUS_ARRANGE_EDIT;
+					txprintf(64-9, 0, 1, "Arrange  ");
 					break;
 
 				case XT_KEY_F10:
 					next_focus = XT_UI_FOCUS_META_EDIT;
+					txprintf(64-9, 0, 1, "Meta     ");
 					break;
 			}
 
@@ -292,7 +322,7 @@ int main(int argc, char **argv)
 						s_arrange_editor.column = s_phrase_editor.column;
 					}
 					break;
-
+					
 				case XT_UI_FOCUS_ARRANGE_EDIT:
 					if (!s_xt.playing)
 					{
@@ -335,7 +365,7 @@ int main(int argc, char **argv)
 		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
 		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
 		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_arrange_editor.frame, s_arrange_editor.column);
-		xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track, &s_phrase_editor);
+		xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track, &s_phrase_editor, s_phrase_editor.instrument);
 
 		elapsed++;
 	}
