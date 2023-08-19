@@ -12,3 +12,4 @@ obj/
 history/
 util/tm/settings.xml
 mo_image.mos
+*.swo
