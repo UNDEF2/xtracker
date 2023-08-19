@@ -241,8 +241,9 @@ int main(int argc, char **argv)
 				case XT_KEY_CR:
 					switch (focus)
 					{
-						case XT_UI_FOCUS_PATTERN_EDIT:
+						default:
 							toggle_playback(key_event);
+							break;
 
 						default:
 							break;
