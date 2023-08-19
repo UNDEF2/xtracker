@@ -18,6 +18,7 @@ void xt_instrument_renderer_init(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEd
 // navigation position.
 void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num)
 {
+	return;
 	if (!a->border_drawn)
 	{
 		// Legend occupies the top row of the box
