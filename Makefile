@@ -21,6 +21,8 @@ TARGET_DEV := /dev/disk/by-id/usb-x68k_DEVDISK_000000000000-0:1
 include $(XBASEDIR)/xb-rules.mk
 # Can add anything to CFLAGS and ASFLAGS here with +=.
 
+CFLAGS += -DXB_DISPLAY_512PX_PCG_HACK
+
 mo_image.mos: $(OUTDIR)/$(APPNAME).X resources
 	mkdir -p mo_mnt
 	unzip empty_mo.zip
