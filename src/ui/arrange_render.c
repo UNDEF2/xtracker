@@ -86,7 +86,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			{
 				if (current->phrase_id[j] == ref->phrase_id[j] && j != col)
 				{
-					cell_x += XT_UI_COL_SPACING * 2;
+					cell_x += XT_UI_COL_SPACING;
 					continue;
 				}
 				current->phrase_id[j] = ref->phrase_id[j];

@@ -1,7 +1,7 @@
 #ifndef UI_METRICS_H
 #define UI_METRICS_H
 
-#define XT_UI_COL_SPACING 6
+#define XT_UI_COL_SPACING 16
 #define XT_UI_ROW_SPACING 8
 
 #define XT_ARRANGE_RENDER_X 6
