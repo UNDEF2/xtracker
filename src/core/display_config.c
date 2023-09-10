@@ -4,6 +4,7 @@
 #include "xbase/pcg.h"
 #include "xbase/crtc.h"
 #include "xbase/util/display.h"
+#include "xbase/util/crtcgen.h"
 
 #include <dos.h>
 #include <iocs.h>
@@ -15,49 +16,46 @@
 
 // Base config for high x low res scan, and 2 x 256-color CG planes.
 #define CRT_FLAGS_BASE 0x0101
+#define VIDCON_PRIO 0x31E4
+#define VIDCON_FLAGS 0x007F
 
-// 512 x 256 @ 55Hz
-static const XBDisplayMode mode_15k =
-#define CRT_FLAGS CRT_FLAGS_BASE
+static const XBCrtcGenParam s_crtc_params[] =
 {
+	// 31k
 	{
-		0x004C, 0x0009, 0x000A, 0x004A,
-		0x011C, 0x0002, 0x0014, 0x0014,
-		0x20, CRT_FLAGS
+		/*htotal*/0x5B,
+		/*hsync*/0x08,
+		/*hstart*/0x11,
+		/*hsize*/512,
+		/*vtotal*/2*0x11B,
+		/*vsync*/2*0x02,
+		/*vstart*/2*0x14,
+		/*vsize*/256*2,
+		/*ext_h_adj*/0x2C,
+		/*crtc_flags*/CRT_FLAGS_BASE | 0x10,
+		/*pcg_mode=*/0x0010,
+		/*prio*/VIDCON_PRIO,
+		/*vidcon_flags*/VIDCON_FLAGS,
 	},
+	// 15k
 	{
-		0x00FF, 0x000E, 0x0014, 0x0000
+		/*htotal*/0x4D,
+		/*hsync*/0x09,
+		/*hstart*/0x0A,
+		/*hsize*/512,
+		/*vtotal*/0x11B,
+		/*vsync*/0x02,
+		/*vstart*/0x14,
+		/*vsize*/256,
+		/*ext_h_adj*/0x1B,
+		/*crtc_flags*/CRT_FLAGS_BASE,
+		/*pcg_mode*/0x0000,
+		/*prio*/VIDCON_PRIO,
+		/*vidcon_flags*/VIDCON_FLAGS,
 	},
-	{
-		(CRT_FLAGS >> 8), 0x31E4, 0x007F
-	}
 };
-#undef CRT_FLAGS
 
-// 512 x 512 @ 55Hz (line doubled internal 256 lines)
-static const XBDisplayMode mode_31k =
-#define CRT_FLAGS (CRT_FLAGS_BASE | 0x0010)
-{
-	{
-		0x005B, 0x0008, 0x0011, 0x0051,
-		0x0237, 0x0005, 0x0026, 0x0226,
-		0x1B, CRT_FLAGS
-	},
-	{
-		0x00FF, 0x0015, 0x0026, 0x0010
-	},
-	{
-		(CRT_FLAGS >> 8), 0x31E4, 0x007F
-	}
-};
-#undef CRT_FLAGS
-#undef CRT_FLAGS_BASE
-
-static const XBDisplayMode *display_modes[] =
-{
-	&mode_15k,
-	&mode_31k
-};
+static XBDisplayMode s_display_modes[ARRAYSIZE(s_crtc_params)];
 
 //
 // Display Configuration
@@ -83,7 +81,12 @@ void display_config_init(void)
 
 	_iocs_b_clr_al();
 
-	xb_display_init(&s_display, display_modes, ARRAYSIZE(display_modes));
+	// Generate display modes.
+	for (uint16_t i = 0; i < ARRAYSIZE(s_crtc_params); i++)
+	{
+		xb_crtcgen_set(&s_crtc_params[i], &s_display_modes[i]);
+	}
+	xb_display_init(&s_display, s_display_modes, ARRAYSIZE(s_display_modes));
 
 	// Clear PCG memory
 	xb_pcg_set_disp_en(false);
