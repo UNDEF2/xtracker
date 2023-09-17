@@ -1,0 +1,43 @@
+	.include	"xbase/memmap.inc"
+	.section	.text
+#
+# void cursor_fill_sub(uint16_t w, uint16_t h, uint16_t val);
+#
+	.global	cursor_fill_sub
+cursor_fill_sub:
+.set	SPID, 4+(2*2)
+.set	ARG_W, SPID+2
+.set	ARG_H, SPID+(1*4)+2
+.set	ARG_VAL, SPID+(2*4)+2
+	movem.w	d2-d3, -(sp)
+	lea	XB_PCG_BG1_NAME, a0
+	/* Row displacement has w subtracted */
+	move.w	#(512/8)*2, d2
+	move.w	ARG_W(sp), d3
+	beq	done
+	sub.w	d3, d2
+	sub.w	d3, d2
+	move.w	d2, a1  /* a1 holds effective row offset  */
+	/* Value to be drawn is in d0 */
+	move.w	ARG_VAL(sp), d0
+	/* Inner loop counter pre-dec in d3 */
+	subq	#1, d3
+
+	/* Outer loop counter */
+	move.w	ARG_H(sp), d1
+	beq	done
+	subq	#1, d1
+outer_y:
+	/* Inner copy begins */
+	move.w	d3, d2  /* load X counter */
+inner_x:
+	move.w	d0, (a0)+
+	dbf	d2, inner_x
+
+	/* Next line */
+	adda.w	a1, a0
+	dbf	d1, outer_y
+
+done:
+	movem.w	(sp)+, d2-d3
+	rts
