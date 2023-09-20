@@ -9,7 +9,8 @@ cursor_fill_sub:
 .set	ARG_W, SPID+(0*4)+2
 .set	ARG_H, SPID+(1*4)+2
 .set	ARG_VAL, SPID+(2*4)+2
-	movem.w	d2-d4, -(sp)
+	movem.w	d2-d3, -(sp)
+	move.w	d4, -(sp)
 	lea	XB_PCG_BG1_NAME, a0
 	/* Row displacement has w subtracted */
 	move.w	#(512/8)*2, d2
@@ -27,13 +28,16 @@ cursor_fill_sub:
 	beq	done  /* nope out */
 	subq.w	#1, d1
 
-	/* d4 takes ARG_W / 8 */
-	move.w	d3, d4
-	asr.w	#3, d4
+	subq	#1, d3
 
-	/* d3 takes 2 * (7 - (ARG_W % 8)) */
-	andi.w	#0x07, d2
-	move.w	#7, d3
+	/* d4 takes ARG_W / 16 */
+	move.w	d3, d4
+	asr.w	#4, d4
+
+	/* d3 takes 2 * (15 - (ARG_W % 16)) */
+	move.w	d3, d2
+	andi.w	#0x0F, d2
+	move.w	#0x0F, d3
 	sub.w	d2, d3
 	add.w	d3, d3
 
@@ -42,9 +46,10 @@ outer_y:
 	/* Jump table for minor */
 	jmp	inner_x(pc, d3.w)
 inner_x:
-	.rept	8
+	.rept	16
 	move.w	d0, (a0)+
 	.endr
+
 	dbf	d2, inner_x
 
 	/* Next line */
@@ -52,22 +57,6 @@ inner_x:
 	dbf	d1, outer_y
 
 done:
-	movem.w	(sp)+, d2-d4
+	move.w	(sp)+, d4
+	movem.w	(sp)+, d2-d3
 	rts
-
-
-old_shit:
-	/* d3 takes ARG_W - 1 */
-	subq.w	#1, d3
-
-outer_y2:
-	move.w	d3, d2  /* load X counter */
-inner_x2:
-	move.w	d0, (a0)+
-	dbf	d2, inner_x2
-
-	/* Next line */
-	adda.w	a1, a0
-	dbf	d1, outer_y2
-
-	bra	done
