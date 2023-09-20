@@ -1,7 +1,7 @@
 #include "ui/arrange_render.h"
 #include <string.h>
 
-#include "cgprint.h"
+#include "util/cgprint.h"
 #include "common.h"
 #include "xt_palette.h"
 
@@ -99,7 +99,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 					// erase inactive areas.
 					if (a->last_frame_count != t->num_frames)
 					{
-						cgprint(0, XT_PAL_UI_FG | CG_ATTR_OPAQUE, "  ", cell_x, cell_y);
+						cgprint(0, XT_PAL_UI_FG | CG_ATTR_IGNORE_ALPHA, "  ", cell_x, cell_y);
 					}
 
 					cell_x += XT_UI_COL_SPACING;
@@ -122,7 +122,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 				char buffer[3] = {0, 0, 0};
 				buffer[0] = 0x10 | ((id & 0xF0) >> 4);
 				buffer[1] = 0x10 | (id & 0x0F);
-				cgprint(0, pal | CG_ATTR_OPAQUE, buffer, cell_x, cell_y);
+				cgprint(0, pal | CG_ATTR_IGNORE_ALPHA, buffer, cell_x, cell_y);
 				// Highlighted cells get marked for potential repaint
 				if (pal == XT_PAL_UI_HIGHLIGHT_FG)
 				{

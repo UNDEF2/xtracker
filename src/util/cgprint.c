@@ -1,4 +1,4 @@
-#include "cgprint.h"
+#include "util/cgprint.h"
 #include <stdio.h>
 #include "common.h"
 #include "xbase/crtc.h"
@@ -50,7 +50,7 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 				{
 					*dest_local = px + (attr & 0x00FF);
 				}
-				else if (attr & CG_ATTR_OPAQUE)
+				else if (attr & CG_ATTR_IGNORE_ALPHA)
 				{
 					*dest_local = 0;
 				}

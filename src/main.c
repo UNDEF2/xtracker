@@ -12,10 +12,10 @@
 #include "xbase/mfp.h"
 
 #include "common.h"
-#include "cgprint.h"
 #include "phrase_editor.h"
 #include "arrange_editor.h"
 #include "core/display_config.h"
+#include "util/cgprint.h"
 #include "util/txprint.h"
 #include "ui/arrange_render.h"
 #include "ui/cursor.h"

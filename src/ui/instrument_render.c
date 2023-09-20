@@ -2,7 +2,7 @@
 #include "ui/metrics.h"
 #include "xt_instrument.h"
 #include <string.h>
-#include "cgprint.h"
+#include "util/cgprint.h"
 #include "xt_palette.h"
 #include "common.h"
 

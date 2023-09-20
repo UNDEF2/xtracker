@@ -1,5 +1,5 @@
 #include "ui/fnlabels.h"
-#include "cgprint.h"
+#include "util/cgprint.h"
 
 void ui_fnlabel_set(uint16_t i, const char *s)
 {
