@@ -7,6 +7,7 @@
 #include <stdbool.h>
 
 #include "xbase/crtc.h"
+#include "xbase/keys.h"
 #include "xbase/memmap.h"
 #include "xbase/vidcon.h"
 #include "xbase/mfp.h"
@@ -24,13 +25,11 @@
 #include "ui/track_render.h"
 
 #include "xt.h"
-#include "xt_keys.h"
 #include "xt_irq.h"
 #include "xt_palette.h"
 #include "xt_instrument.h"
 
 static Xt s_xt;
-static XtKeys s_keys;
 static XtArrangeRenderer s_arrange_renderer;
 static XtInstrumentRenderer s_instrument_renderer;
 static XtTrackRenderer s_track_renderer;
@@ -158,21 +157,22 @@ void maybe_set_fnlabels(XtUiFocus next_focus, XtUiFocus focus)
 
 }
 
-static void toggle_playback(XtKeyEvent key_event)
+static void toggle_playback(XBKeyEvent key_event)
 {
+	if (key_event.modifiers & XB_KEY_MOD_KEY_UP) return;
 	if (s_xt.playing)
 	{
-		if (key_event.name == XT_KEY_CR)
+		if (key_event.name == XB_KEY_CR)
 		{
 			xt_stop_playing(&s_xt);
 		}
 	}
 	else
 	{
-		if (key_event.name == XT_KEY_CR)
+		if (key_event.name == XB_KEY_CR)
 		{
 			xt_start_playing(&s_xt, s_phrase_editor.frame,
-			                 xt_keys_held(&s_keys, XT_KEY_SHIFT));
+			                 xb_key_on(XB_KEY_SHIFT));
 		}
 		xt_phrase_editor_on_key(&s_phrase_editor, &s_xt.track, key_event);
 	}
@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 
 	xt_irq_init();
 	xt_palette_init();
-	xt_keys_init(&s_keys);
+	xb_keys_init();
 	xt_cursor_init();
 
 	xt_track_renderer_init(&s_track_renderer);
@@ -254,54 +254,54 @@ int main(int argc, char **argv)
 		// Input handling.
 		//
 
-		xt_keys_poll(&s_keys);
+		xb_keys_poll();
 
-		XtKeyEvent key_event;
+		XBKeyEvent key_event;
 
 		maybe_set_fnlabels(next_focus, focus);
 		focus = next_focus;
 
-		while (xt_keys_event_pop(&s_keys, &key_event))
+		while (xb_keys_event_pop(&key_event))
 		{
 			// General key inputs that are always active.
 			switch (key_event.name)
 			{
 				default:
 					break;
-				case XT_KEY_CR:
+				case XB_KEY_CR:
 					toggle_playback(key_event);
 					break;
 
-				case XT_KEY_HELP:
+				case XB_KEY_HELP:
 					display_config_cycle_modes();
 					break;
 
-				case XT_KEY_BREAK:
+				case XB_KEY_BREAK:
 					quit = true;
 					break;
 
 				// Save
-				case XT_KEY_F6:
+				case XB_KEY_F6:
 					if (filename) hack_save_track(filename);
 					break;
 
 				// Focus changes
-				case XT_KEY_F7:
+				case XB_KEY_F7:
 					next_focus = XT_UI_FOCUS_PATTERN_EDIT;
 					txprintf(64-9, 0, 1, "Pattern  ");
 					break;
 
-				case XT_KEY_F8:
+				case XB_KEY_F8:
 					next_focus = XT_UI_FOCUS_INSTRUMENT_LIST;
 					txprintf(64-9, 0, 1, "Instr.   ");
 					break;
 
-				case XT_KEY_F9:
+				case XB_KEY_F9:
 					next_focus = XT_UI_FOCUS_ARRANGE_EDIT;
 					txprintf(64-9, 0, 1, "Arrange  ");
 					break;
 
-				case XT_KEY_F10:
+				case XB_KEY_F10:
 					next_focus = XT_UI_FOCUS_META_EDIT;
 					txprintf(64-9, 0, 1, "Meta     ");
 					break;

@@ -72,6 +72,10 @@ typedef enum XtNote
 	XT_NOTE_AS   = 0xB,
 	XT_NOTE_B    = 0xC,
 
+	XT_NOTE_NG_D = 0xD,
+	XT_NOTE_NG_E = 0xE,
+	XT_NOTE_NG_F = 0xF,
+
 	XT_NOTE_OFF = 0xFE,
 	XT_NOTE_CUT = 0xFF,
 } XtNote;

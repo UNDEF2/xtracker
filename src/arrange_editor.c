@@ -53,35 +53,36 @@ static void cursor_up(XtArrangeEditor *a, XtTrack *t)
 	else a->frame--;
 }
 
-void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e)
+void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e)
 {
+	if (e.modifiers & XB_KEY_MOD_KEY_UP) return;
 	XtFrame *current = &t->frames[a->frame];
 	switch (e.name)
 	{
 		// Navigation.
-		case XT_KEY_DOWN:
+		case XB_KEY_DOWN:
 			cursor_down(a, t);
 			break;
-		case XT_KEY_UP:
+		case XB_KEY_UP:
 			cursor_up(a, t);
 			break;
-		case XT_KEY_RIGHT:
+		case XB_KEY_RIGHT:
 			a->column++;
 			if (a->column >= XT_TOTAL_CHANNEL_COUNT) a->column = 0;
 			break;
-		case XT_KEY_LEFT:
+		case XB_KEY_LEFT:
 			if (a->column == 0) a->column = XT_TOTAL_CHANNEL_COUNT - 1;
 			else a->column--;
 			break;
 		// Frame navigation.
-		case XT_KEY_R_UP:
+		case XB_KEY_R_UP:
 			break;
-		case XT_KEY_R_DOWN:
+		case XB_KEY_R_DOWN:
 			break;
-		case XT_KEY_HOME:
+		case XB_KEY_HOME:
 			break;
 		// Frame change.
-		case XT_KEY_NUMPAD_PLUS:
+		case XB_KEY_NUMPAD_PLUS:
 			current->phrase_id[a->column]++;
 			if (current->phrase_id[a->column] >= XT_PHRASES_PER_CHANNEL)
 			{
@@ -89,7 +90,7 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e)
 			}
 			xt_arrange_renderer_redraw_col(a->r, a->column);
 			break;
-		case XT_KEY_NUMPAD_MINUS:
+		case XB_KEY_NUMPAD_MINUS:
 			if (current->phrase_id[a->column] == 0)
 			{
 				current->phrase_id[a->column] = XT_PHRASES_PER_CHANNEL - 1;
@@ -100,23 +101,23 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e)
 			}
 			xt_arrange_renderer_redraw_col(a->r, a->column);
 			break;
-		case XT_KEY_F1:  // Move -
+		case XB_KEY_F1:  // Move -
 			if (a->frame == 0) break;
 			swap_frames(t, a->frame, a->frame - 1);
 			cursor_up(a, t);
 			xt_arrange_renderer_redraw(a->r);
 			break;
-		case XT_KEY_F2:  // Move +
+		case XB_KEY_F2:  // Move +
 			swap_frames(t, a->frame, a->frame + 1);
 			cursor_down(a, t);
 			xt_arrange_renderer_redraw(a->r);
 			break;
-		case XT_KEY_F3:  // Copy
+		case XB_KEY_F3:  // Copy
 			push_frames_down(t, a->frame);
 			xt_arrange_renderer_redraw(a->r);
 			cursor_down(a, t);
 			break;
-		case XT_KEY_F4:  // Add
+		case XB_KEY_F4:  // Add
 			push_frames_down(t, a->frame);
 			cursor_down(a, t);
 			// TODO: Don't use current, maybe. Updating it here is kind of hacky
@@ -127,7 +128,7 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e)
 			}
 			xt_arrange_renderer_redraw(a->r);
 			break;
-		case XT_KEY_F5:  // Del
+		case XB_KEY_F5:  // Del
 			pull_frames_up(t, a->frame);
 			xt_arrange_renderer_redraw(a->r);
 			break;

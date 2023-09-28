@@ -34,6 +34,16 @@ XtNote xt_transpose_note(XtNote note, int16_t semitones)
 			if (octave > 0)
 			{
 				tone += XT_NOTE_B;
+				switch (tone)
+				{
+					default:
+						break;
+					case XT_NOTE_NG_D:
+					case XT_NOTE_NG_E:
+					case XT_NOTE_NG_F:
+						tone = XT_NOTE_B;
+						break;
+				}
 				octave--;
 			}
 			else

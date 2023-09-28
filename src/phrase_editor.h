@@ -3,7 +3,7 @@
 
 #include "xt_track.h"
 #include "ui/track_render.h"
-#include "xt_keys.h"
+#include "xbase/keys.h"
 #include <stdint.h>
 
 typedef enum XtEditorCursorSubPos
@@ -70,7 +70,7 @@ typedef struct XtPhraseEditor
 
 void xt_phrase_editor_init(XtPhraseEditor *p, const XtTrack *t);
 
-void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XtKeyEvent e);
+void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e);
 
 // Mark channel(s) as dirty in the XtTrackRenderer
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);

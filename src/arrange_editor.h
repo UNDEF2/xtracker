@@ -2,9 +2,8 @@
 #define ARRANGE_EDITOR_H
 
 #include <stdint.h>
-
+#include "xbase/keys.h"
 #include "xt_track.h"
-#include "xt_keys.h"
 
 #include "ui/arrange_render.h"
 
@@ -20,7 +19,7 @@ typedef struct XtArrangeEditor
 
 void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r);
 
-void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtKeyEvent e);
+void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e);
 
 void xt_arrange_editor_set_fnlabels(void);
 

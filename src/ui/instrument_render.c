@@ -18,7 +18,6 @@ void xt_instrument_renderer_init(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEd
 // navigation position.
 void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num)
 {
-	return;
 	if (!a->border_drawn)
 	{
 		// Legend occupies the top row of the box
@@ -68,7 +67,7 @@ void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEd
 		char buffer[32];
 		snprintf(buffer, sizeof(buffer), "Instrument $%02X", instr_num);
 
-		cgprint(0, XT_PAL_UI_BORDER, buffer, a->draw_x + 6, a->draw_y);
+		cgprint(0, XT_PAL_UI_BORDER | CG_ATTR_IGNORE_ALPHA, buffer, a->draw_x + 6, a->draw_y);
 		a->instr_num = instr_num;
 	}
 }
