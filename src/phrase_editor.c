@@ -305,7 +305,6 @@ static const XtKeyNotePairing note_lookup[] =
 static inline bool handle_note_entry(XtPhraseEditor *p, XtTrack *t,
                                      XBKeyEvent e)
 {
-	if (e.modifiers & XB_KEY_MOD_SHIFT) return false;
 	// TODO: Entry for PCM channels.
 	if (p->column >= 8) return false;
 

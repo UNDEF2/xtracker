@@ -211,7 +211,8 @@ int main(int argc, char **argv)
 
 	xt_irq_init();
 	xt_palette_init();
-	xb_keys_init();
+
+	xb_keys_init(NULL);
 	xt_cursor_init();
 
 	xt_track_renderer_init(&s_track_renderer);
