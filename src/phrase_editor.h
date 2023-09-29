@@ -78,6 +78,6 @@ void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);
 
-void xt_phrase_editor_set_fnlabels(void);
+void xt_phrase_editor_set_fnlabels(bool ctrl);
 
 #endif  // PHRASE_EDITOR_H

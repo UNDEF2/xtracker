@@ -713,7 +713,7 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 }
 
 // ============================================================================
-// Transposition.
+// Note Manipulation Functions.
 // ============================================================================
 
 static void transpose(XtPhraseEditor *p, XtTrack *t,
@@ -746,7 +746,58 @@ static void transpose(XtPhraseEditor *p, XtTrack *t,
 			dest_cell->note = xt_transpose_note(dest_cell->note, semitones);
 		}
 
-		p->channel_dirty[lesser_column + column] = true;
+		p->channel_dirty[col_idx] = true;
+	}
+}
+
+static void shrink(XtPhraseEditor *p, XtTrack *t, bool use_selection)
+{
+	(void)p;
+	(void)t;
+	(void)use_selection;
+}
+
+static void expand(XtPhraseEditor *p, XtTrack *t, bool use_selection)
+{
+	uint16_t lesser_row, greater_row, row_count;
+	uint16_t lesser_column, greater_column, column_count;
+	if (use_selection)
+	{
+		select_region_sub(p, &lesser_row, &greater_row, &row_count,
+		                  &lesser_column, &greater_column, &column_count);
+	}
+	else
+	{
+		// If not using the selection region, just apply to the whole phrase.
+		lesser_row = 0;
+		greater_row = XT_PHRASE_MAX_ROWS - 1;
+		row_count = XT_PHRASE_MAX_ROWS;
+		lesser_column = p->column;
+		greater_column = p->column;
+		column_count = 1;
+	}
+	for (uint16_t column = 0; column < column_count; column++)
+	{
+		const uint16_t col_idx = lesser_column + column;
+		if (col_idx >= XT_TOTAL_CHANNEL_COUNT) continue;
+		XtPhrase *dest_phrase = xt_track_get_phrase(t, col_idx, p->frame);
+		for (uint16_t row = 0; row < row_count; row++)
+		{
+			const uint16_t row_idx = (greater_row - row);
+			const bool blank = row_idx % 2 != 0;
+			if (row_idx >= XT_PHRASE_MAX_ROWS && row_idx < 0) continue;
+			XtCell *dest_cell = &dest_phrase->cells[row_idx];
+			if (blank)
+			{
+				*dest_cell = (XtCell){ 0 };
+			}
+			else
+			{
+				*dest_cell = dest_phrase->cells[row_idx / 2];
+			}
+		}
+
+		p->channel_dirty[col_idx] = true;
 	}
 }
 
@@ -860,6 +911,16 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 		case XB_KEY_F2:
 			transpose(p, t, (e.modifiers & XB_KEY_MOD_CTRL) ? +12 : +1, false);
 			break;
+		// Expand / Shrink.
+		case XB_KEY_F3:
+			if (e.modifiers & XB_KEY_MOD_CTRL)
+			{
+				shrink(p, t, false);
+			}
+			else
+			{
+				expand(p, t, false);
+			}
 		// Copy / paste.
 		case XB_KEY_V:
 			if (e.modifiers & XB_KEY_MOD_CTRL)
@@ -996,6 +1057,16 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 		case XB_KEY_F2:
 			transpose(p, t, (e.modifiers & XB_KEY_MOD_CTRL) ? +12 : +1, true);
 			break;
+		// Expand / Shrink.
+		case XB_KEY_F3:
+			if (e.modifiers & XB_KEY_MOD_CTRL)
+			{
+				shrink(p, t, true);
+			}
+			else
+			{
+				expand(p, t, true);
+			}
 		// Copy / Paste.
 		case XB_KEY_C:
 			if (e.modifiers & XB_KEY_MOD_CTRL)
@@ -1045,11 +1116,22 @@ void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 	}
 }
 
-void xt_phrase_editor_set_fnlabels(void)
+void xt_phrase_editor_set_fnlabels(bool ctrl)
 {
-	ui_fnlabel_set(0, "Note -");
-	ui_fnlabel_set(1, "Note +");
-	ui_fnlabel_set(2, "Exp/Shk");
-	ui_fnlabel_set(3, "Push");
-	ui_fnlabel_set(4, "SetInst");
+	if (ctrl)
+	{
+		ui_fnlabel_set(0, "Note-12");
+		ui_fnlabel_set(1, "Note+12");
+		ui_fnlabel_set(2, "Shrink");
+		ui_fnlabel_set(3, "Pull Up");
+		ui_fnlabel_set(4, "SetInst");
+	}
+	else
+	{
+		ui_fnlabel_set(0, "Note -1");
+		ui_fnlabel_set(1, "Note +1");
+		ui_fnlabel_set(2, "Expand");
+		ui_fnlabel_set(3, "Push Dn");
+		ui_fnlabel_set(4, "SetInst");
+	}
 }

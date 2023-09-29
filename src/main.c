@@ -134,13 +134,19 @@ typedef enum XtUiFocus
 	XT_UI_TRACK_FILE,
 } XtUiFocus;
 
-void maybe_set_fnlabels(XtUiFocus next_focus, XtUiFocus focus)
+void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus next_focus, XtUiFocus focus)
 {
-	if (next_focus == focus) return;
+	bool want_redraw = next_focus != focus;
+	if (ev)
+	{
+		if (ev->modifiers & XB_KEY_MOD_IS_REPEAT) return;
+		if (ev->name == XB_KEY_CTRL) want_redraw = true;
+	}
+	if (!want_redraw) return;
 	switch (next_focus)
 	{
 		case XT_UI_FOCUS_PATTERN_EDIT:
-			xt_phrase_editor_set_fnlabels();
+			xt_phrase_editor_set_fnlabels(xb_key_on(XB_KEY_CTRL));
 			break;
 		case XT_UI_FOCUS_ARRANGE_EDIT:
 			xt_arrange_editor_set_fnlabels();
@@ -259,11 +265,12 @@ int main(int argc, char **argv)
 
 		XBKeyEvent key_event;
 
-		maybe_set_fnlabels(next_focus, focus);
+		maybe_set_fnlabels(NULL, next_focus, focus);
 		focus = next_focus;
 
 		while (xb_keys_event_pop(&key_event))
 		{
+			maybe_set_fnlabels(&key_event, next_focus, focus);
 			// General key inputs that are always active.
 			switch (key_event.name)
 			{
