@@ -3,15 +3,18 @@
 
 #include <stdint.h>
 
+#define CG_ATTR_IGNORE_ALPHA 0x8000
+
 void cgprint_load(const char *fname);
 
-#define CG_ATTR_IGNORE_ALPHA 0x1000
-// cg should point to a 8bpp font bitmap.
-// The characters should be 5 x 7 px, in the upper-left of each 8 x 8 px tile.
-// x and y are in units of 1px.
+// The characters lie within a 6 x 8 area, contained within an 8 x 8 px tile.
 void cgprint(int16_t plane, uint16_t attr, const char *s,
              int16_t x, int16_t y);
 
-void cgbox(int16_t plane, uint16_t color, int16_t x1, int16_t y1,
+// Draw a CG graphic to the CG plane
+void cgtile(int16_t plane, int16_t x, int16_t y,
+            uint16_t tile, uint16_t w, uint16_t h);
+
+void cgbox(int16_t plane, uint16_t attr, int16_t x1, int16_t y1,
            int16_t x2, int16_t y2);
 #endif  // CGPRINT_H

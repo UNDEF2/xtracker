@@ -211,7 +211,7 @@ int main(int argc, char **argv)
 	display_config_init();
 	txprint_init();
 
-	cgprint_load("RES\\CGFNT8.BIN");
+	cgprint_load("RES\\CGDAT.BIN");
 
 	xt_init(&s_xt);
 
@@ -254,6 +254,8 @@ int main(int argc, char **argv)
 	uint32_t elapsed = 0;
 	bool quit = false;
 
+	cgtile(0, 0, 80, 0x80, 16, 2);
+
 	// The main loop.
 	while (!quit)
 	{
@@ -271,16 +273,20 @@ int main(int argc, char **argv)
 		while (xb_keys_event_pop(&key_event))
 		{
 			maybe_set_fnlabels(&key_event, next_focus, focus);
+
+			if (key_event.modifiers & XB_KEY_MOD_KEY_UP) continue;
 			// General key inputs that are always active.
 			switch (key_event.name)
 			{
 				default:
 					break;
 				case XB_KEY_CR:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					toggle_playback(key_event);
 					break;
 
 				case XB_KEY_HELP:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					display_config_cycle_modes();
 					break;
 
@@ -290,26 +296,31 @@ int main(int argc, char **argv)
 
 				// Save
 				case XB_KEY_F6:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					if (filename) hack_save_track(filename);
 					break;
 
 				// Focus changes
 				case XB_KEY_F7:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					next_focus = XT_UI_FOCUS_PATTERN_EDIT;
 					txprintf(64-9, 0, 1, "Pattern  ");
 					break;
 
 				case XB_KEY_F8:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					next_focus = XT_UI_FOCUS_INSTRUMENT_LIST;
 					txprintf(64-9, 0, 1, "Instr.   ");
 					break;
 
 				case XB_KEY_F9:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					next_focus = XT_UI_FOCUS_ARRANGE_EDIT;
 					txprintf(64-9, 0, 1, "Arrange  ");
 					break;
 
 				case XB_KEY_F10:
+					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					next_focus = XT_UI_FOCUS_META_EDIT;
 					txprintf(64-9, 0, 1, "Meta     ");
 					break;

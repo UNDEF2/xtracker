@@ -1,0 +1,129 @@
+	.include	"xbase/memmap.inc"
+	.section	.text
+
+.set	CGPRINT_TILE_W, 8
+.set	CGPRINT_TILE_H, 8
+
+.set	CGPRINT_CHAR_W, 6
+.set	CGPRINT_CHAR_H, 8
+
+#
+# void cgprint_6x8_sub(const uint8_t *src_addr, volatile uint16_t *dest_addr,
+#                      uint16_t attr);
+#
+	.global	cgprint_6x8_sub
+cgprint_6x8_sub:
+.set	SPID, 4+(0*0)
+.set	ARG_SRC_ADDR, SPID+(0*4)
+.set	ARG_DEST_ADDR, SPID+(1*4)
+.set	ARG_ATTR, SPID+(2*4)+2
+
+	/* a0 := src, a1 := dest */
+	move.l	ARG_SRC_ADDR(sp), a0
+	move.l	ARG_DEST_ADDR(sp), a1
+
+	/* d1 holds the color */
+	moveq	#0, d1
+	move.w	ARG_ATTR(sp), d1
+	bmi	1f  /* Ignore alpha flag */
+
+	andi.w	#0x00FF, d1  /* Only keep color from attribute data */
+	.rept	CGPRINT_CHAR_H
+
+	/* Draw horizontal pixels from the tile */
+	.rept	CGPRINT_CHAR_W
+	move.b	(a0)+, d0
+	and.w	d1, d0     /* mask against color */
+	beq	9f  /* Skip transparent pixels */
+	move.w	d0, (a1)
+9:
+	addq	#2, a1
+	.endr  /* CGPRINT_CHAR_W */
+
+	/* Next row */
+	addq	#2, a0  /* Skip unused 2px from tile */
+	adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
+
+	.endr  /* CGPRINT_CHAR_H */
+	rts
+
+1:  /* Alpha ignore version */
+	andi.w	#0x00FF, d1  /* Only keep color from attribute data */
+	.rept	CGPRINT_CHAR_H
+
+	/* Draw horizontal pixels from the tile */
+	.rept	CGPRINT_CHAR_W
+	move.b	(a0)+, d0
+	and.w	d1, d0     /* mask against color */
+	move.w	d0, (a1)+
+	.endr  /* CGPRINT_CHAR_W */
+
+	/* Next row */
+	addq	#2, a0  /* Skip unused 2px from tile */
+	adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
+
+	.endr  /* CGPRINT_CHAR_H */
+	rts
+
+#
+# void cgprint_8x8_sub(const uint8_t *src_addr, volatile uint16_t *dest_addr,
+#                      uint16_t w, uint16_t h);
+#
+	.global	cgprint_8x8_sub
+cgprint_8x8_sub:
+.set	SPID, 4+(2*2)
+.set	ARG_SRC_ADDR, SPID+(0*4)
+.set	ARG_DEST_ADDR, SPID+(1*4)
+.set	ARG_W, SPID+(2*4)+2
+.set	ARG_H, SPID+(3*4)+2
+	movem.w	d2/d7, -(sp)
+
+	/* a0 := src, a1 := dest */
+	move.l	ARG_SRC_ADDR(sp), a0
+	move.l	ARG_DEST_ADDR(sp), a1
+
+	/* Inner counter */
+	move.w	ARG_W(sp), d1
+	beq	9f
+	subq	#1, d1
+	move.w	d1, d2  /* backup for counter */
+	/* Outer counter */
+	move.w	ARG_H(sp), d7
+	beq	9f
+	subq	#1, d7
+
+	moveq	#0, d0
+
+tile_h_outer:
+	move.l	a1, -(sp)
+	move.w	d2, d1
+tile_w_inner:
+
+	/* Draw an 8x8 tile from a0 to CG plane at a1 */
+	.rept	CGPRINT_TILE_H
+	/* Draw horizontal pixels from the tile */
+	.rept	CGPRINT_TILE_W
+	move.b	(a0)+, d0
+	move.w	d0, (a1)+
+	.endr  /* CGPRINT_TILE_W */
+
+	/* Next row */
+	adda.w	#((512 - CGPRINT_TILE_W) * 2).l, a1
+	.endr  /* CGPRINT_TILE_H */
+
+	/* Move back up to where we started, and then 8px to the right */
+	suba.w	#(((8 * 512) - 8) * 2).l, a1
+
+	dbf	d1, tile_w_inner
+
+
+	/* With a row of tiles done, move a1 back and move down a line */
+	move.l	(sp)+, a1
+	adda.w	#((8 * 512) * 2).l, a1
+
+	dbf	d7, tile_h_outer
+
+9:
+	movem.w	(sp)+, d2/d7
+	rts
+
