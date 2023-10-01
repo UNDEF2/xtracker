@@ -342,6 +342,7 @@ int main(int argc, char **argv)
 				case XB_KEY_F9:
 					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
 					next_focus = XT_UI_FOCUS_ARRANGE;
+					xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
 					break;
 
 				case XB_KEY_F10:
@@ -387,6 +388,11 @@ int main(int argc, char **argv)
 		xt_poll(&s_xt);
 		xt_update_opm_registers(&s_xt);
 
+		if (xt_is_playing(&s_xt))
+		{
+			s_arrange_editor.frame = s_xt.current_frame;
+		}
+
 		// Rendering is done during VBlank, ideally.
 		xt_irq_wait_vbl();
 		xt_cursor_update();
@@ -411,14 +417,13 @@ int main(int argc, char **argv)
 			case XT_UI_FOCUS_INSTRUMENT:
 				xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track,
 				                            &s_phrase_editor, s_phrase_editor.instrument);
-				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
 				break;
 		}
 
 		update_scroll();
 
 		// Update the track renderer to repaint pattern data.
-		const int16_t displayed_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.row);
+		const int16_t displayed_frame = (xt_is_playing(&s_xt) ? s_xt.current_frame : s_phrase_editor.frame);
 		xt_track_renderer_tick(&s_track_renderer, &s_xt, displayed_frame);
 
 		maybe_set_chanlabels(xt_phrase_editor_get_cam_x(&s_phrase_editor));
