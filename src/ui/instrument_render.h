@@ -13,13 +13,13 @@ typedef struct XtInstrumentRenderer
 	XtInstrument data;
 	int16_t instr_num;
 
-	// Selection position.
-	int16_t row;
-	int16_t column;
+	// Edit interface vars
+	struct
+	{
+		int16_t row, column;  // Selection pos
+	} edit;
 
-	int16_t draw_x, draw_y;
-
-	bool border_drawn;
+	bool backing_drawn;
 } XtInstrumentRenderer;
 
 // Set up the XtInstrument struct for its first render and further use.
@@ -31,7 +31,7 @@ void xt_instrument_renderer_init(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEd
 void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num);
 
 // Mark all frames and the border as needing a redraw.
-void xt_instrument_renderer_redraw(XtInstrumentRenderer *a);
+void xt_instrument_renderer_request_redraw(XtInstrumentRenderer *a);
 
 
 #endif  // UI_INSTRUMENT_RENDER_H

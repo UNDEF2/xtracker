@@ -41,9 +41,7 @@ int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p)
 
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
 {
-	xt_track_renderer_set_camera(r, xt_phrase_editor_get_cam_x(p),
-	                             xt_phrase_editor_get_cam_y(p));
-	for (int i = 0; i < ARRAYSIZE(p->channel_dirty); i++)
+	for (uint16_t i = 0; i < ARRAYSIZE(p->channel_dirty); i++)
 	{
 		if (p->channel_dirty[i])
 		{
@@ -51,6 +49,12 @@ void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r)
 			p->channel_dirty[i] = false;
 		}
 	}
+}
+
+void xt_phrase_editor_set_camera(XtPhraseEditor *p, XtTrackRenderer *r)
+{
+	xt_track_renderer_set_camera(r, xt_phrase_editor_get_cam_x(p),
+	                             xt_phrase_editor_get_cam_y(p));
 }
 
 // ============================================================================
@@ -708,7 +712,6 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 		}
 
 		p->channel_dirty[col_idx] = true;
-		dest_phrase->phrase_valid = true;
 	}
 }
 

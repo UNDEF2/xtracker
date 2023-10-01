@@ -101,7 +101,6 @@ typedef struct XtCell
 typedef struct XtPhrase
 {
 	XtCell cells[XT_PHRASE_MAX_ROWS];
-	int16_t phrase_valid;
 } XtPhrase;
 
 // One row within the arrangement table.
@@ -124,6 +123,7 @@ typedef struct XtTrackChannelData
 	XtChannelType type;
 	int16_t voice_number;  // Hardware voice number for relevant chip.
 	XtPhrase phrases[XT_PHRASES_PER_CHANNEL];
+	// TODO: Phrase count?
 } XtTrackChannelData;
 
 // One whole song in memory.

@@ -74,6 +74,7 @@ void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e);
 
 // Mark channel(s) as dirty in the XtTrackRenderer
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
+void xt_phrase_editor_set_camera(XtPhraseEditor *p, XtTrackRenderer *r);
 
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);

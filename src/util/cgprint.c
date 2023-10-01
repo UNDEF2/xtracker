@@ -56,18 +56,16 @@ void cgtile(int16_t plane, int16_t x, int16_t y,
 	cgprint_8x8_sub(&s_cgdat[tile * 64], dest, w, h);
 }
 
-void cgbox(int16_t plane, uint16_t attr, int16_t x1, int16_t y1,
-           int16_t x2, int16_t y2)
+void cgbox(int16_t plane, uint16_t attr,
+           int16_t x, int16_t y,
+           int16_t w, int16_t h)
 {
-	volatile uint16_t *dest = get_cgram_ptr(plane, x1, y1);
+	volatile uint16_t *dest = get_cgram_ptr(plane, x, y);
 	attr &= 0x00FF;
 
-	for (int16_t y = y1; y < y2; y++)
+	for (int16_t row = 0; row < h; row++)
 	{
-		for (int16_t x = 0; x < x2 - x1; x++)
-		{
-			dest[x] = attr;
-		}
+		cgprint_line_fill_sub(dest, attr, w);
 		dest += CGPRINT_PLANE_W;
 	}
 }

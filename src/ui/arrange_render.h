@@ -2,6 +2,7 @@
 #define UI_ARRANGE_RENDER_H
 
 #include "xt_track.h"
+#include "ui/track_render.h"
 
 #include <stdbool.h>
 
@@ -22,18 +23,18 @@ typedef struct XtArrangeRenderer
 {
 	// A collection of rows that represents the phrase IDs currently drawn to
 	// the CG plane.
-	// These are just a 7-row-high "window" into the whole arrange table, so
+	// These are just a 5-row-high "window" into the whole arrange table, so
 	// index 0 just refers to the top-left of the area of focus.
-	XtFrame frames[7];
+	XtFrame frames[5];
+	int16_t frame_id[5];
 
-	int16_t row;  // The current row to be selected. Must always be valid.
-	int16_t column;  // The current column to highlight.
+	struct
+	{
+		int16_t row, column;
+	} edit;
 
 	int16_t last_frame_count;
-
-	int16_t draw_x, draw_y;
-
-	bool border_drawn;
+	bool backing_drawn;
 } XtArrangeRenderer;
 
 // Set up the XtArrange struct for its first render and further use.
@@ -46,8 +47,9 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
                               int16_t row, int16_t col);
 
 // Mark all frames and the border as needing a redraw.
-void xt_arrange_renderer_redraw(XtArrangeRenderer *a);
+void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a);
 
+// Mark one column for a redraw.
 void xt_arrange_renderer_redraw_col(XtArrangeRenderer *a, int16_t col);
 
 #endif  // UI_ARRANGE_RENDER_H

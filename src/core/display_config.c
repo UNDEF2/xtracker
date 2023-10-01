@@ -21,22 +21,6 @@
 
 static const XBCrtcGenParam s_crtc_params[] =
 {
-	// 31k
-	{
-		/*htotal*/0x5B,
-		/*hsync*/0x08,
-		/*hstart*/0x11,
-		/*hsize*/512,
-		/*vtotal*/2*0x11B,
-		/*vsync*/2*0x02,
-		/*vstart*/2*0x14,
-		/*vsize*/256*2,
-		/*ext_h_adj*/0x2C,
-		/*crtc_flags*/CRT_FLAGS_BASE | 0x10,
-		/*pcg_mode=*/0x0010,
-		/*prio*/VIDCON_PRIO,
-		/*vidcon_flags*/VIDCON_FLAGS,
-	},
 	// 15k
 	{
 		/*htotal*/0x4D,
@@ -50,6 +34,22 @@ static const XBCrtcGenParam s_crtc_params[] =
 		/*ext_h_adj*/0x1B,
 		/*crtc_flags*/CRT_FLAGS_BASE,
 		/*pcg_mode*/0x0000,
+		/*prio*/VIDCON_PRIO,
+		/*vidcon_flags*/VIDCON_FLAGS,
+	},
+	// 31k
+	{
+		/*htotal*/0x5B,
+		/*hsync*/0x08,
+		/*hstart*/0x10,
+		/*hsize*/512,
+		/*vtotal*/2*0x11B,
+		/*vsync*/2*0x02,
+		/*vstart*/2*0x14,
+		/*vsize*/256*2,
+		/*ext_h_adj*/0x2C,
+		/*crtc_flags*/CRT_FLAGS_BASE | 0x10,
+		/*pcg_mode=*/0x0010,
 		/*prio*/VIDCON_PRIO,
 		/*vidcon_flags*/VIDCON_FLAGS,
 	},

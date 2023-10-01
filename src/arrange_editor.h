@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "xbase/keys.h"
 #include "xt_track.h"
-
+#include "ui/track_render.h"
 #include "ui/arrange_render.h"
 
 typedef struct XtArrangeEditor
@@ -19,7 +19,7 @@ typedef struct XtArrangeEditor
 
 void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r);
 
-void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e);
+void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *tr, XBKeyEvent e);
 
 void xt_arrange_editor_set_fnlabels(void);
 

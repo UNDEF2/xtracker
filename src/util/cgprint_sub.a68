@@ -127,3 +127,39 @@ tile_w_inner:
 	movem.w	(sp)+, d2/d7
 	rts
 
+#
+# void cgprint_line_fill_sub(volatile uint16_t *dest_addr, uint16_t val,
+#                            uint16_t w);
+#
+	.global	cgprint_line_fill_sub
+cgprint_line_fill_sub:
+.set	SPID, 4+(0*0)
+.set	ARG_DEST_ADDR, SPID+(0*4)
+.set	ARG_VAL, SPID+(1*4)+2
+.set	ARG_W, SPID+(2*4)+2
+	move.l	ARG_DEST_ADDR(sp), a0
+	move.w	ARG_VAL(sp), d0
+	move.w	d0, d1
+	swap	d0
+	move.w	d1, d0
+
+# Check for common width divisions as minor optimization
+	move.w	ARG_W(sp), d1
+	btst	#0, d1
+	beq	line_copy_div2
+# Simple, slowest
+line_copy_nodiv:
+	subq	#1, d1
+line_copy_top0:
+	move.w	d0, (a0)+
+	dbf	d1, line_copy_top0
+	rts
+
+# Two pixels at once
+line_copy_div2:
+	asr.w	#1, d1
+	subq	#1, d1
+line_copy_top2:
+	move.l	d0, (a0)+
+	dbf	d1, line_copy_top2
+	rts

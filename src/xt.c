@@ -538,3 +538,8 @@ void xt_stop_playing(Xt *xt)
 	cut_all_opm_sound();
 	xt->playing = false;
 }
+
+bool xt_is_playing(const Xt *xt)
+{
+	return xt->playing;
+}

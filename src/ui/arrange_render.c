@@ -17,10 +17,8 @@ void xt_arrange_renderer_init(XtArrangeRenderer *a)
 		{
 			a->frames[i].phrase_id[j] = -1;
 		}
+		a->frame_id[i] = -1;
 	}
-
-	a->draw_x = XT_ARRANGE_RENDER_X;
-	a->draw_y = XT_ARRANGE_RENDER_Y;
 }
 
 // Draw the arrangement table as-needed based on track data and the provided
@@ -28,56 +26,55 @@ void xt_arrange_renderer_init(XtArrangeRenderer *a)
 void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
                             int16_t row, int16_t col)
 {
-	if (!a->border_drawn)
+	const int16_t kbase_x = XT_UI_ARRANGEMENT_X;
+	const int16_t kbase_y = XT_UI_ARRANGEMENT_Y;
+	const int16_t kbase_w = XT_UI_AREA_W - kbase_x - XT_UI_MARGIN_SIDE;
+	const int16_t kbase_h = XT_UI_AREA_H - kbase_y - 8;  // Space for the channel indicators
+	if (!a->backing_drawn)
 	{
-		static const char *left_mapping[] =
-		{
-			"\x05", "\x03", "\x03", "\x03", "\x03", "\x03", "\x07"
-		};
-		static const char *right_mapping[] =
-		{
-			"\x04", "\x03", "\x03", "\x03", "\x03", "\x03", "\x06"
-		};
-		int16_t y = a->draw_y;
-		const int16_t left_x = a->draw_x;
-		const int16_t right_x = left_x +
-		                        (XT_UI_COL_SPACING * ARRAYSIZE(a->frames[0].phrase_id)) + 2;
-		cgprint(0, XT_PAL_UI_BORDER,"Arrangement", left_x + 6, y);
-		y += XT_UI_ROW_SPACING;
+		// Back black rectangle area.
+		cgbox(XT_UI_PLANE, XT_PAL_BACK, kbase_x, kbase_y, kbase_w, kbase_h);
 
-		for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
-		{
-			cgprint(0, XT_PAL_UI_BORDER, left_mapping[i], left_x, y);
-			cgprint(0, XT_PAL_UI_BORDER, right_mapping[i], right_x, y);
-			y += XT_UI_ROW_SPACING;
-		}
+		// Title.
+		cgprint(XT_UI_PLANE, XT_PAL_ACCENT1, "Arrangement Table",
+		        kbase_x + XT_UI_TITLEBAR_TEXT_OFFS_X,
+		        kbase_y + XT_UI_TITLEBAR_TEXT_OFFS_Y);
 
-		a->border_drawn = true;
+		// Accent line (vert)
+		cgbox(XT_UI_PLANE, XT_PAL_ACCENT2,
+		      kbase_x, kbase_y,
+		      1, XT_UI_TITLEBAR_LINE_H);
+		// Accent line (horiz)
+		cgbox(XT_UI_PLANE, XT_PAL_ACCENT2,
+		      kbase_x, kbase_y + XT_UI_TITLEBAR_LINE_H,
+		      kbase_w, 1);
+
+		a->backing_drawn = true;
 	}
 
 	if (row >= 0)
 	{
-		a->row = row;
+		a->edit.row = row;
 	}
 	if (col >= 0)
 	{
-		a->column = col;
+		a->edit.column = col;
 	}
 
-	int16_t cell_y = a->draw_y + XT_UI_ROW_SPACING;
+	int16_t cell_y = XT_UI_ARRANGEMENT_Y + XT_UI_TITLEBAR_CONTENT_OFFS_Y;
 
 	// Look for data that needs an update.
 	for (int16_t i = 0; i < ARRAYSIZE(a->frames); i++)
 	{
 		XtFrame *current = &a->frames[i];
-		const int16_t ref_frame_id = a->row - (ARRAYSIZE(a->frames) / 2) + i;
+		const int16_t ref_frame_id = a->edit.row - (ARRAYSIZE(a->frames) / 2) + i;
 		const XtFrame *ref = NULL;
 		if (ref_frame_id >= 0 && ref_frame_id < t->num_frames)
 		{
 			ref = &t->frames[ref_frame_id];
 		}
 
-		int16_t cell_x = a->draw_x + 6;
+		int16_t cell_x = XT_UI_ARRANGEMENT_X + XT_UI_ARRANGEMENT_TABLE_OFFS_X;
 
 		// now compare the reference frame to what we've already drawn.
 		for (int16_t j = 0; j < ARRAYSIZE(current->phrase_id); j++)
@@ -99,7 +96,8 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 					// erase inactive areas.
 					if (a->last_frame_count != t->num_frames)
 					{
-						cgprint(0, XT_PAL_UI_FG | CG_ATTR_IGNORE_ALPHA, "  ", cell_x, cell_y);
+						cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
+						      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
 					}
 
 					cell_x += XT_UI_COL_SPACING;
@@ -111,27 +109,54 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			// Redraw the current phrase id.
 			if (current->phrase_id[j] == -1)
 			{
-				cgbox(0, XT_PAL_TRANSPARENT, cell_x, cell_y, cell_x + 12, cell_y + XT_UI_ROW_SPACING);
+				cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
+				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
 			}
 			else
 			{
-				const int16_t pal = (j == a->column && i == (ARRAYSIZE(a->frames) / 2)) ?
-				                    XT_PAL_UI_HIGHLIGHT_FG :
-				                    XT_PAL_UI_FG;
+				// Choose palette to highlight
+				const bool is_editor_col = j == a->edit.column;
+				const bool is_center_row = i == (ARRAYSIZE(a->frames) / 2);
+				int16_t pal = XT_PAL_INACTIVE;
+				if (is_center_row) pal = XT_PAL_ACCENT2;
+				if (is_editor_col && is_center_row) pal = XT_PAL_MAIN;  // TODO: Don't do this if editor is inactive?
+
+				// hex print for phrase ID
 				const uint8_t id = current->phrase_id[j];
-				char buffer[3] = {0, 0, 0};
+				char buffer[3] = {0};
 				buffer[0] = 0x10 | ((id & 0xF0) >> 4);
 				buffer[1] = 0x10 | (id & 0x0F);
-				cgprint(0, pal | CG_ATTR_IGNORE_ALPHA, buffer, cell_x, cell_y);
+				cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
+				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
+				cgprint(XT_UI_PLANE, pal, buffer, cell_x, cell_y);
 				// Highlighted cells get marked for potential repaint
-				if (pal == XT_PAL_UI_HIGHLIGHT_FG)
-				{
-					current->phrase_id[j] = -1;
-				}
+				if (is_editor_col && is_center_row) current->phrase_id[j] = -1;
 			}
 
 			cell_x += XT_UI_COL_SPACING;
 		}
+
+		// Print the frame ID.
+		if (ref)
+		{
+			if (ref_frame_id != a->frame_id[i])
+			{
+				a->frame_id[i] = ref_frame_id;
+				char buffer[4] = "  :";
+				buffer[0] = 0x10 | ((ref_frame_id & 0xF0) >> 4);
+				buffer[1] = 0x10 | (ref_frame_id & 0x0F);
+				cgbox(XT_UI_PLANE, XT_PAL_BACK, XT_UI_ARRANGEMENT_X, cell_y,
+				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
+				cgprint(XT_UI_PLANE, XT_PAL_ACCENT1, buffer, XT_UI_ARRANGEMENT_X, cell_y);
+			}
+		}
+		else if (a->frame_id[i] != -1)
+		{
+			cgbox(XT_UI_PLANE, XT_PAL_BACK, XT_UI_ARRANGEMENT_X, cell_y,
+			      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
+			a->frame_id[i] = -1;
+		}
+
 		cell_y += XT_UI_ROW_SPACING;
 	}
 
@@ -139,7 +164,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 }
 
 // Mark all frames and the border as needing a redraw.
-void xt_arrange_renderer_redraw(XtArrangeRenderer *a)
+void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a)
 {
 	xt_arrange_renderer_init(a);
 }

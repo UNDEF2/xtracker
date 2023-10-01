@@ -1,6 +1,8 @@
 #include "arrange_editor.h"
 #include <string.h>
+#include "ui/cursor.h"
 #include "ui/fnlabels.h"
+#include "ui/metrics.h"
 #include "common.h"
 
 void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r)
@@ -8,6 +10,14 @@ void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r)
 	memset(a, 0, sizeof(*a));
 	a->entry_cursor = -1;
 	a->r = r;
+}
+
+static void draw_cursor(const XtArrangeEditor *a)
+{
+	const int16_t draw_x = XT_UI_ARRANGEMENT_X + XT_UI_ARRANGEMENT_TABLE_OFFS_X + (a->column * XT_UI_COL_SPACING);
+	const int16_t draw_y = XT_UI_ARRANGEMENT_Y + XT_UI_ARRANGEMENT_TABLE_OFFS_Y + (a->frame * XT_UI_ROW_SPACING);
+	xt_cursor_set(draw_x, draw_y, 1, 1, -1, /*line_hl=*/false);
+	xt_cursor_set(32, 32, 4, 4, -1, /*line_hl=*/true);
 }
 
 static void push_frames_down(XtTrack *t, int16_t frame)
@@ -53,7 +63,7 @@ static void cursor_up(XtArrangeEditor *a, XtTrack *t)
 	else a->frame--;
 }
 
-void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e)
+void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *tr, XBKeyEvent e)
 {
 	if (e.modifiers & XB_KEY_MOD_KEY_UP) return;
 	XtFrame *current = &t->frames[a->frame];
@@ -89,6 +99,7 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e)
 				current->phrase_id[a->column] = 0;
 			}
 			xt_arrange_renderer_redraw_col(a->r, a->column);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_NUMPAD_MINUS:
 			if (current->phrase_id[a->column] == 0)
@@ -100,41 +111,52 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XBKeyEvent e)
 				current->phrase_id[a->column]--;
 			}
 			xt_arrange_renderer_redraw_col(a->r, a->column);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F1:  // Move -
 			if (a->frame == 0) break;
 			swap_frames(t, a->frame, a->frame - 1);
 			cursor_up(a, t);
-			xt_arrange_renderer_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F2:  // Move +
 			swap_frames(t, a->frame, a->frame + 1);
 			cursor_down(a, t);
-			xt_arrange_renderer_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F3:  // Copy
 			push_frames_down(t, a->frame);
-			xt_arrange_renderer_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r);
 			cursor_down(a, t);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F4:  // Add
 			push_frames_down(t, a->frame);
 			cursor_down(a, t);
 			// TODO: Don't use current, maybe. Updating it here is kind of hacky
 			current = &t->frames[a->frame];
+			// TODO: Should this go to the next "free" phrase ID instead?
+			// Depends on phrase count in XtTrackChannelData.
 			for (int16_t i = 0; i < XT_TOTAL_CHANNEL_COUNT; i++)
 			{
-				if (current->phrase_id[i] < XT_PHRASES_PER_CHANNEL - 1) current->phrase_id[i]++;
+				// Take on the ID of the last frame + 1
+				if (a->frame > 0) current->phrase_id[i] = t->frames[a->frame - 1].phrase_id[i] + 1;
+				if (current->phrase_id[i] >= XT_PHRASES_PER_CHANNEL) current->phrase_id[i] = 0;  // Wrao
 			}
-			xt_arrange_renderer_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F5:  // Del
 			pull_frames_up(t, a->frame);
-			xt_arrange_renderer_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r);
+			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		default:
 			break;
 	}
+	draw_cursor(a);
 }
 
 void xt_arrange_editor_set_fnlabels(void)

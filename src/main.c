@@ -19,7 +19,9 @@
 #include "util/cgprint.h"
 #include "util/txprint.h"
 #include "ui/arrange_render.h"
+#include "ui/backing.h"
 #include "ui/cursor.h"
+#include "ui/chanlabels.h"
 #include "ui/fnlabels.h"
 #include "ui/instrument_render.h"
 #include "ui/track_render.h"
@@ -39,11 +41,6 @@ static XtArrangeEditor s_arrange_editor;
 //
 // Test Code
 //
-
-void draw_mock_ui(void)
-{
-	txprintf(64-9, 0, 1, "XTracker ");
-}
 
 void set_demo_instruments(void)
 {
@@ -123,18 +120,30 @@ void set_demo_meta(void)
 // TODO: xt_ui.c
 typedef enum XtUiFocus
 {
-	XT_UI_FOCUS_PATTERN_EDIT,
-	XT_UI_FOCUS_ARRANGE_EDIT,
-	XT_UI_FOCUS_INSTRUMENT_LIST,
-	XT_UI_FOCUS_INSTRUMENT_EDIT,
-	XT_UI_FOCUS_INSTRUMENT_FILE,
-	XT_UI_FOCUS_META_EDIT,
+	XT_UI_FOCUS_PATTERN,
+	XT_UI_FOCUS_ARRANGE,
+	XT_UI_FOCUS_INSTRUMENT,
+	XT_UI_FOCUS_META,
 	XT_UI_FOCUS_ADPCM_MAPPING,
 	XT_UI_FOCUS_ADPCM_FILE,
-	XT_UI_TRACK_FILE,
+	XT_UI_FOCUS_FILE_DIALOGUE,
 } XtUiFocus;
 
-void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus next_focus, XtUiFocus focus)
+static void maybe_set_chanlabels(int16_t cam_x)
+{
+	static int16_t s_last_cam_x = -1;
+	if (s_last_cam_x != cam_x)
+	{
+		const int16_t left_visible_channel = cam_x / (XT_RENDER_CELL_W_PIXELS * XT_RENDER_CELL_CHARS);
+		for (int16_t i = 0; i < XT_RENDER_VISIBLE_CHANNELS; i++)
+		{
+			ui_chanlabel_set(i, left_visible_channel + i);
+		}
+		s_last_cam_x = cam_x;
+	}
+}
+
+static void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus next_focus, XtUiFocus focus)
 {
 	bool want_redraw = next_focus != focus;
 	if (ev)
@@ -145,10 +154,10 @@ void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus next_focus, XtUiFocus focus)
 	if (!want_redraw) return;
 	switch (next_focus)
 	{
-		case XT_UI_FOCUS_PATTERN_EDIT:
+		case XT_UI_FOCUS_PATTERN:
 			xt_phrase_editor_set_fnlabels(xb_key_on(XB_KEY_CTRL));
 			break;
-		case XT_UI_FOCUS_ARRANGE_EDIT:
+		case XT_UI_FOCUS_ARRANGE:
 			xt_arrange_editor_set_fnlabels();
 			break;
 		default:
@@ -204,6 +213,26 @@ static void hack_save_track(const char *fname)
 	fclose(f);
 }
 
+static void update_scroll(void)
+{
+	// Set camera / scroll for pattern field.
+	// Focus the "camera" down a little bit to make room for the HUD.
+	if (xt_is_playing(&s_xt))
+	{
+		const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
+		xt_track_renderer_set_camera(&s_track_renderer,
+		                             xt_phrase_editor_get_cam_x(&s_phrase_editor),
+		                             yscroll);
+	}
+	else
+	{
+		// TODO: Split out side effects of repainting or give a better name.
+		xt_track_renderer_set_camera(&s_track_renderer,
+		                             xt_phrase_editor_get_cam_x(&s_phrase_editor),
+		                             xt_phrase_editor_get_cam_y(&s_phrase_editor));
+	}
+}
+
 int main(int argc, char **argv)
 {
 	_dos_super(0);
@@ -212,6 +241,7 @@ int main(int argc, char **argv)
 	txprint_init();
 
 	cgprint_load("RES\\CGDAT.BIN");
+	txprintf(0, 16, 1, "");
 
 	xt_init(&s_xt);
 
@@ -230,6 +260,8 @@ int main(int argc, char **argv)
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
 
+	ui_backing_draw();
+
 	//s_phrase_editor.visible_channels = s_track_renderer.visible_channels;
 
 	// Set up xt with some test data
@@ -246,15 +278,11 @@ int main(int argc, char **argv)
 
 	if (filename) hack_load_track(filename);
 
-	draw_mock_ui();
-
 	XtUiFocus focus = -1;
-	XtUiFocus next_focus = XT_UI_FOCUS_PATTERN_EDIT;
+	XtUiFocus next_focus = XT_UI_FOCUS_PATTERN;
 
 	uint32_t elapsed = 0;
 	bool quit = false;
-
-	cgtile(0, 0, 80, 0x80, 16, 2);
 
 	// The main loop.
 	while (!quit)
@@ -303,26 +331,22 @@ int main(int argc, char **argv)
 				// Focus changes
 				case XB_KEY_F7:
 					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_PATTERN_EDIT;
-					txprintf(64-9, 0, 1, "Pattern  ");
+					next_focus = XT_UI_FOCUS_PATTERN;
 					break;
 
 				case XB_KEY_F8:
 					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_INSTRUMENT_LIST;
-					txprintf(64-9, 0, 1, "Instr.   ");
+					next_focus = XT_UI_FOCUS_INSTRUMENT;
 					break;
 
 				case XB_KEY_F9:
 					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_ARRANGE_EDIT;
-					txprintf(64-9, 0, 1, "Arrange  ");
+					next_focus = XT_UI_FOCUS_ARRANGE;
 					break;
 
 				case XB_KEY_F10:
 					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_META_EDIT;
-					txprintf(64-9, 0, 1, "Meta     ");
+					next_focus = XT_UI_FOCUS_META;
 					break;
 			}
 
@@ -332,21 +356,24 @@ int main(int argc, char **argv)
 				default:
 					break;
 
-				case XT_UI_FOCUS_PATTERN_EDIT:
+				case XT_UI_FOCUS_PATTERN:
 					if (!s_xt.playing)
 					{
 						xt_phrase_editor_on_key(&s_phrase_editor,
-					                            &s_xt.track, key_event);
+						                        &s_xt.track, key_event);
 						s_arrange_editor.frame = s_phrase_editor.frame;
 						s_arrange_editor.column = s_phrase_editor.column;
 					}
 					break;
-					
-				case XT_UI_FOCUS_ARRANGE_EDIT:
+
+				case XT_UI_FOCUS_ARRANGE:
 					if (!s_xt.playing)
 					{
 						xt_arrange_editor_on_key(&s_arrange_editor,
-					                             &s_xt.track, key_event);
+						                         &s_xt.track,
+						                         &s_track_renderer, key_event);
+						s_phrase_editor.frame = s_arrange_editor.frame;
+						s_phrase_editor.column = s_arrange_editor.column;
 					}
 					break;
 			}
@@ -368,24 +395,33 @@ int main(int argc, char **argv)
 		// Rendering.
 		//
 
-		if (s_xt.playing)
+		switch (focus)
 		{
-			// Focus the "camera" down a little bit to make room for the HUD.
-			const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
-			xt_track_renderer_set_camera(&s_track_renderer,
-			                             xt_phrase_editor_get_cam_x(&s_phrase_editor),
-			                             yscroll);
-		}
-		else
-		{
-			xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
+			default:
+				break;
+			case XT_UI_FOCUS_PATTERN:
+				xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
+				xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
+				                         s_arrange_editor.frame, s_arrange_editor.column);
+				break;
+			case XT_UI_FOCUS_ARRANGE:
+				xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
+				                         s_arrange_editor.frame, s_arrange_editor.column);
+				break;
+			case XT_UI_FOCUS_INSTRUMENT:
+				xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track,
+				                            &s_phrase_editor, s_phrase_editor.instrument);
+				xt_arrange_renderer_request_redraw(&s_arrange_renderer);
+				break;
 		}
 
-		const int16_t scroll_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.frame);
-		xt_track_renderer_tick(&s_track_renderer, &s_xt, scroll_frame);
-		xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track, s_arrange_editor.frame, s_arrange_editor.column);
-		xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track, &s_phrase_editor, s_phrase_editor.instrument);
+		update_scroll();
 
+		// Update the track renderer to repaint pattern data.
+		const int16_t displayed_frame = (s_xt.playing ? s_xt.current_frame : s_phrase_editor.row);
+		xt_track_renderer_tick(&s_track_renderer, &s_xt, displayed_frame);
+
+		maybe_set_chanlabels(xt_phrase_editor_get_cam_x(&s_phrase_editor));
 		elapsed++;
 	}
 

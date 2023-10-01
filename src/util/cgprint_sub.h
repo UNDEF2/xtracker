@@ -13,4 +13,8 @@ void cgprint_6x8_sub(const uint8_t *src_addr, volatile uint16_t *dest_addr,
 void cgprint_8x8_sub(const uint8_t *src_addr, volatile uint16_t *dest_addr,
                      uint16_t w, uint16_t h);
 
+// Routine to fill one line with pixel value `val`.
+void cgprint_line_fill_sub(volatile uint16_t *dest_addr, uint16_t val,
+                           uint16_t w);
+
 #endif  // UTIL_CGPRINT_SUB

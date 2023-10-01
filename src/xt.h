@@ -116,5 +116,7 @@ void xt_update_opm_registers(Xt *xt);
 // repeat to cause it to play the same frame repeatedly
 void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat);
 void xt_stop_playing(Xt *xt);
+bool xt_is_playing(const Xt *xt);
+void xt_get_playback_pos(const Xt *xt, int16_t *frame, int16_t *row);
 
 #endif  // _XT_H

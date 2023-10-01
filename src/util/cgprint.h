@@ -15,6 +15,6 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 void cgtile(int16_t plane, int16_t x, int16_t y,
             uint16_t tile, uint16_t w, uint16_t h);
 
-void cgbox(int16_t plane, uint16_t attr, int16_t x1, int16_t y1,
-           int16_t x2, int16_t y2);
+void cgbox(int16_t plane, uint16_t attr, int16_t x, int16_t y,
+           int16_t w, int16_t h);
 #endif  // CGPRINT_H
