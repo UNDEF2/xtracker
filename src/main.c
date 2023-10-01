@@ -411,7 +411,7 @@ int main(int argc, char **argv)
 			case XT_UI_FOCUS_INSTRUMENT:
 				xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track,
 				                            &s_phrase_editor, s_phrase_editor.instrument);
-				xt_arrange_renderer_request_redraw(&s_arrange_renderer);
+				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
 				break;
 		}
 

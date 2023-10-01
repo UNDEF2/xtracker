@@ -74,6 +74,14 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 			ref = &t->frames[ref_frame_id];
 		}
 
+		// If the frame count changed, invalidate all of the frame ID gutter
+		if (a->last_frame_count != t->num_frames)
+		{
+			cgbox(XT_UI_PLANE, XT_PAL_BACK, XT_UI_ARRANGEMENT_X, cell_y,
+			      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
+			a->frame_id[i] = -1;
+		}
+
 		int16_t cell_x = XT_UI_ARRANGEMENT_X + XT_UI_ARRANGEMENT_TABLE_OFFS_X;
 
 		// now compare the reference frame to what we've already drawn.
@@ -164,9 +172,10 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 }
 
 // Mark all frames and the border as needing a redraw.
-void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a)
+void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a, bool content_only)
 {
 	xt_arrange_renderer_init(a);
+	if (content_only) a->backing_drawn = true;
 }
 
 void xt_arrange_renderer_redraw_col(XtArrangeRenderer *a, int16_t col)

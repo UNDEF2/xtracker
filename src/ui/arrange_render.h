@@ -47,7 +47,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
                               int16_t row, int16_t col);
 
 // Mark all frames and the border as needing a redraw.
-void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a);
+void xt_arrange_renderer_request_redraw(XtArrangeRenderer *a, bool content_only);
 
 // Mark one column for a redraw.
 void xt_arrange_renderer_redraw_col(XtArrangeRenderer *a, int16_t col);

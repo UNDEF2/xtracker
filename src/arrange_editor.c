@@ -63,6 +63,16 @@ static void cursor_up(XtArrangeEditor *a, XtTrack *t)
 	else a->frame--;
 }
 
+static inline void phrase_add(XtArrangeEditor *a, XtTrackRenderer *tr, XtFrame *current, int16_t col, int16_t diff)
+{
+	current->phrase_id[col] += diff;
+	if (current->phrase_id[col] >= XT_PHRASES_PER_CHANNEL) current->phrase_id[col] = 0;
+	else if (current->phrase_id[col] < 0) current->phrase_id[col] = 0;
+
+	xt_arrange_renderer_redraw_col(a->r, col);
+	xt_track_renderer_repaint_channel(tr, col);
+}
+
 void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *tr, XBKeyEvent e)
 {
 	if (e.modifiers & XB_KEY_MOD_KEY_UP) return;
@@ -92,43 +102,50 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *t
 		case XB_KEY_HOME:
 			break;
 		// Frame change.
+		case XB_KEY_OPEN_BRACKET:
 		case XB_KEY_NUMPAD_PLUS:
-			current->phrase_id[a->column]++;
-			if (current->phrase_id[a->column] >= XT_PHRASES_PER_CHANNEL)
+			if (e.modifiers & XB_KEY_MOD_CTRL)
 			{
-				current->phrase_id[a->column] = 0;
-			}
-			xt_arrange_renderer_redraw_col(a->r, a->column);
-			xt_track_renderer_repaint_channel(tr, a->column);
-			break;
-		case XB_KEY_NUMPAD_MINUS:
-			if (current->phrase_id[a->column] == 0)
-			{
-				current->phrase_id[a->column] = XT_PHRASES_PER_CHANNEL - 1;
+				for (int16_t i = 0; i < ARRAYSIZE(current->phrase_id); i++)
+				{
+					phrase_add(a, tr, current, i, 1);
+				}
 			}
 			else
 			{
-				current->phrase_id[a->column]--;
+				phrase_add(a, tr, current, a->column, 1);
 			}
-			xt_arrange_renderer_redraw_col(a->r, a->column);
-			xt_track_renderer_repaint_channel(tr, a->column);
+			break;
+		case XB_KEY_CLOSED_BRACKET:
+		case XB_KEY_NUMPAD_MINUS:
+			if (e.modifiers & XB_KEY_MOD_CTRL)
+			{
+				for (int16_t i = 0; i < ARRAYSIZE(current->phrase_id); i++)
+				{
+					phrase_add(a, tr, current, i, -1);
+				}
+			}
+			else
+			{
+				phrase_add(a, tr, current, a->column, -1);
+			}
 			break;
 		case XB_KEY_F1:  // Move -
 			if (a->frame == 0) break;
 			swap_frames(t, a->frame, a->frame - 1);
 			cursor_up(a, t);
-			xt_arrange_renderer_request_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r, /*content_only=*/true);
 			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F2:  // Move +
 			swap_frames(t, a->frame, a->frame + 1);
 			cursor_down(a, t);
-			xt_arrange_renderer_request_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r, /*content_only=*/true);
 			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F3:  // Copy
 			push_frames_down(t, a->frame);
-			xt_arrange_renderer_request_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r, /*content_only=*/true);
 			cursor_down(a, t);
 			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
@@ -145,12 +162,12 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *t
 				if (a->frame > 0) current->phrase_id[i] = t->frames[a->frame - 1].phrase_id[i] + 1;
 				if (current->phrase_id[i] >= XT_PHRASES_PER_CHANNEL) current->phrase_id[i] = 0;  // Wrao
 			}
-			xt_arrange_renderer_request_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r, /*content_only=*/true);
 			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		case XB_KEY_F5:  // Del
 			pull_frames_up(t, a->frame);
-			xt_arrange_renderer_request_redraw(a->r);
+			xt_arrange_renderer_request_redraw(a->r, /*content_only=*/true);
 			xt_track_renderer_repaint_channel(tr, a->column);
 			break;
 		default:
