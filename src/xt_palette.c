@@ -66,7 +66,7 @@ static const uint16_t kpcg_palette[] =
 static const uint16_t kgp_palette[256] =
 {
 	[XT_PAL_TRANSPARENT] = 0,
-	[XT_PAL_BACK] = XB_PAL_RGB8(0x08, 0x08, 0x08),
+	[XT_PAL_BACK] = XB_PAL_RGB8(0x00, 0x00, 0x00) | 0x0001,
 	[XT_PAL_MAIN] = XB_PAL_RGB8(0xFF, 0xFF, 0xFF),
 	[XT_PAL_ACCENT1] = XB_PAL_RGB8(0x00, 0xFF, 0xFF),
 	[XT_PAL_ACCENT2] = XB_PAL_RGB8(0xFF, 0x00, 0x70),
