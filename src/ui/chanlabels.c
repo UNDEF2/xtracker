@@ -9,7 +9,7 @@ void ui_chanlabel_set(uint16_t i, uint16_t num)
 {
 	// TODO: Enums / something legible instead of 8 for FM Channel count
 	const int16_t draw_x = (i * XT_UI_CHANLABEL_W);
-	const bool fm_label = (i < 8);
+	const bool fm_label = (num < 8);
 	const char *name = (fm_label) ? "FM" : "PCM";
 	const int16_t name_len = (fm_label) ? 2 : 3;
 	const int16_t name_offs = ((XT_UI_CHANLABEL_W / 2) + 1) - ((name_len + 1) * 6 / 2);
