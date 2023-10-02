@@ -24,6 +24,7 @@
 #include "ui/cursor.h"
 #include "ui/chanlabels.h"
 #include "ui/fnlabels.h"
+#include "ui/metrics.h"
 #include "ui/regdata_render.h"
 #include "ui/track_render.h"
 
@@ -200,12 +201,10 @@ void set_demo_meta(void)
 typedef enum XtUiFocus
 {
 	XT_UI_FOCUS_PATTERN,
-	XT_UI_FOCUS_ARRANGE,
-	XT_UI_FOCUS_INSTRUMENT,
-	XT_UI_FOCUS_META,
-	XT_UI_FOCUS_ADPCM_MAPPING,
-	XT_UI_FOCUS_ADPCM_FILE,
-	XT_UI_FOCUS_FILE_DIALOGUE,
+	  XT_UI_FOCUS_ARRANGE_EDIT,
+	  XT_UI_FOCUS_INSTRUMENT_SEL,
+	    XT_UI_FOCUS_INSTRUMENT_EDIT,
+	  XT_UI_FOCUS_META,
 	XT_UI_FOCUS_QUIT,
 } XtUiFocus;
 
@@ -236,18 +235,18 @@ static void draw_fnlabels(XtUiFocus focus, bool ctrl_held)
 		case XT_UI_FOCUS_PATTERN:
 			xt_phrase_editor_set_fnlabels(ctrl_held);
 			break;
-		case XT_UI_FOCUS_ARRANGE:
+		case XT_UI_FOCUS_ARRANGE_EDIT:
 			xt_arrange_editor_set_fnlabels();
 			break;
 		default:
 			break;
 	}
 
-	ui_fnlabel_set(5, "File");
-	ui_fnlabel_set(6, "Pattern");
-	ui_fnlabel_set(7, "Instr");
-	ui_fnlabel_set(8, "Arrange");
-	ui_fnlabel_set(9, "Meta");
+	ui_fnlabel_set(5, "Arrange");
+	ui_fnlabel_set(6, "Instr");
+	ui_fnlabel_set(7, "Meta");
+	ui_fnlabel_set(8, "Pattern");
+	ui_fnlabel_set(9, "File");
 }
 
 static void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus focus)
@@ -330,6 +329,38 @@ static void update_scroll(void)
 	xb_set_ipl(old_ipl);
 }
 
+static void maybe_draw_focus_label(XtUiFocus focus)
+{
+	static XtUiFocus s_last_focus = -1;
+	if (focus == s_last_focus) return;
+	s_last_focus = focus;
+
+	const char *str = "";
+	switch (focus)
+	{
+		default:
+			break;
+		case XT_UI_FOCUS_PATTERN:
+			str = "Pattern Edit";
+			break;
+		case XT_UI_FOCUS_ARRANGE_EDIT:
+			str = "Arrange Edit";
+			break;
+		case XT_UI_FOCUS_INSTRUMENT_SEL:
+			str = "Instrument List";
+			break;
+		case XT_UI_FOCUS_INSTRUMENT_EDIT:
+			str = "Instrument Edit";
+			break;
+		case XT_UI_FOCUS_META:
+			str = "Meta Edit";
+			break;
+	}
+	cgbox(XT_UI_PLANE, XT_PAL_BACK, XT_UI_FOCUS_LABEL_X, XT_UI_FOCUS_LABEL_Y,
+	      XT_UI_FOCUS_LABEL_W, XT_UI_FOCUS_LABEL_H);
+	cgprint(XT_UI_PLANE, XT_PAL_MAIN, str, XT_UI_FOCUS_LABEL_X, XT_UI_FOCUS_LABEL_Y);
+}
+
 static void editor_render(XtUiFocus focus)
 {
 	switch (focus)
@@ -341,11 +372,12 @@ static void editor_render(XtUiFocus focus)
 			xt_arrange_renderer_tick(&s_arrange_renderer, &s_track,
 			                         s_arrange_editor.frame, s_arrange_editor.column);
 			break;
-		case XT_UI_FOCUS_ARRANGE:
+		case XT_UI_FOCUS_ARRANGE_EDIT:
 			xt_arrange_renderer_tick(&s_arrange_renderer, &s_track,
 			                         s_arrange_editor.frame, s_arrange_editor.column);
 			break;
-		case XT_UI_FOCUS_INSTRUMENT:
+		case XT_UI_FOCUS_INSTRUMENT_SEL:
+		case XT_UI_FOCUS_INSTRUMENT_EDIT:
 			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track.instruments[s_phrase_editor.instrument]);
 			break;
 	}
@@ -358,6 +390,13 @@ static void editor_render(XtUiFocus focus)
 	xb_set_ipl(old_ipl);
 	xt_track_renderer_tick(&s_track_renderer, &s_track, displayed_frame);
 	maybe_set_chanlabels(xt_phrase_editor_get_cam_x(&s_phrase_editor));
+	maybe_draw_focus_label(focus);
+}
+
+static void focus_on_pattern(void)
+{
+	xt_phrase_editor_on_focus_acquired(&s_phrase_editor);
+	xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
 }
 
 // The core of the editor is run from here, as a result of input events.
@@ -394,34 +433,36 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				break;
 
 			// Save
-			case XB_KEY_F6:
-				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				// if (filename) hack_save_track(filename);
-				break;
 
 			// Focus changes
+			case XB_KEY_F6:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				focus = XT_UI_FOCUS_ARRANGE_EDIT;
+				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
+				break;
+
 			case XB_KEY_F7:
 				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				focus = XT_UI_FOCUS_PATTERN;
-				xt_phrase_editor_on_focus_acquired(&s_phrase_editor);
-				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
+				focus = XT_UI_FOCUS_INSTRUMENT_SEL;
+				xt_regdata_renderer_request_redraw(&s_regdata_renderer, /*content_only=*/false);
 				break;
 
 			case XB_KEY_F8:
 				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				focus = XT_UI_FOCUS_INSTRUMENT;
-				xt_regdata_renderer_request_redraw(&s_regdata_renderer, /*content_only=*/false);
+				focus = XT_UI_FOCUS_META;
 				break;
 
+			// TODO: Remove this case as pattern is the root, which we can get
+			//       to by mashing escape.
 			case XB_KEY_F9:
 				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				focus = XT_UI_FOCUS_ARRANGE;
-				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
+				focus = XT_UI_FOCUS_PATTERN;
+				focus_on_pattern();
 				break;
 
 			case XB_KEY_F10:
 				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				focus = XT_UI_FOCUS_META;
+				// if (filename) hack_save_track(filename);
 				break;
 		}
 
@@ -441,8 +482,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				}
 				break;
 
-			case XT_UI_FOCUS_ARRANGE:
-				if (!playing)
+			case XT_UI_FOCUS_ARRANGE_EDIT:
+				if (key_event.name == XB_KEY_ESC) focus = XT_UI_FOCUS_PATTERN;
+				else if (!playing)
 				{
 					xt_arrange_editor_on_key(&s_arrange_editor,
 					                         &s_track,
