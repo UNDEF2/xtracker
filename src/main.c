@@ -103,7 +103,7 @@ void set_demo_instruments(void)
 {
 	XtInstrument *ins = &s_track.instruments[0];
 
-	// The bass from Private Eye (Daiginjou)
+	// Instrument $00 - The bass from Private Eye (Daiginjou), sort of
 	memset(ins, 0, sizeof(*ins));
 	ins->type = XT_CHANNEL_OPM;
 	ins->valid = true;
@@ -139,8 +139,28 @@ void set_demo_instruments(void)
 	ins->opm.d1l[3] = 14;
 	ins->opm.rr[3] = 15;
 
+	// instrument $01 - filled crap data
 	ins++;
-	memset(ins, 0x21, sizeof(*ins));
+	uint8_t val = 0;
+	ins->opm.fl = val++;
+	ins->opm.con = val++;
+	ins->opm.pms = val++;
+	ins->opm.ams = val++;
+
+	for (uint16_t i = 0; i < XB_OPM_OP_COUNT; i++)
+	{
+		ins->opm.ar[i] = val++;
+		ins->opm.d1r[i] = val++;
+		ins->opm.d2r[i] = val++;
+		ins->opm.rr[i] = val++;
+		ins->opm.d1l[i] = val++;
+		ins->opm.tl[i] = val++;
+		ins->opm.ks[i] = val++;
+		ins->opm.mul[i] = val++;
+		ins->opm.dt1[i] = val++;
+		ins->opm.dt2[i] = val++;
+		ins->opm.ame[i] = val++;
+	}
 }
 
 void set_demo_meta(void)
@@ -326,8 +346,7 @@ static void editor_render(XtUiFocus focus)
 			                         s_arrange_editor.frame, s_arrange_editor.column);
 			break;
 		case XT_UI_FOCUS_INSTRUMENT:
-			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track,
-			                            &s_phrase_editor, s_phrase_editor.instrument);
+			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track.instruments[s_phrase_editor.instrument]);
 			break;
 	}
 	xt_cursor_update();
@@ -458,7 +477,7 @@ int main(int argc, char **argv)
 	xt_arrange_renderer_init(&s_arrange_renderer);
 	xt_arrange_editor_init(&s_arrange_editor, &s_arrange_renderer);
 	xt_phrase_editor_init(&s_phrase_editor, &s_track);
-	xt_regdata_renderer_init(&s_regdata_renderer, &s_track, &s_phrase_editor);
+	xt_regdata_renderer_init(&s_regdata_renderer);
 
 	ui_backing_draw();
 

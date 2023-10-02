@@ -17,22 +17,22 @@ typedef enum XtChannelType
 
 typedef struct XtOpmPatch
 {
-	uint8_t fl;
 	uint8_t con;
+	uint8_t fl;
 	uint8_t pms;
 	uint8_t ams;
 
-	uint8_t dt1[XB_OPM_OP_COUNT];
-	uint8_t mul[XB_OPM_OP_COUNT];
+	uint8_t ar[XB_OPM_OP_COUNT];
+	uint8_t d1r[XB_OPM_OP_COUNT];
+	uint8_t d2r[XB_OPM_OP_COUNT];
+	uint8_t rr[XB_OPM_OP_COUNT];
+	uint8_t d1l[XB_OPM_OP_COUNT];
 	uint8_t tl[XB_OPM_OP_COUNT];
 	uint8_t ks[XB_OPM_OP_COUNT];
-	uint8_t ar[XB_OPM_OP_COUNT];
-	uint8_t ame[XB_OPM_OP_COUNT];
-	uint8_t d1r[XB_OPM_OP_COUNT];
+	uint8_t mul[XB_OPM_OP_COUNT];
+	uint8_t dt1[XB_OPM_OP_COUNT];
 	uint8_t dt2[XB_OPM_OP_COUNT];
-	uint8_t d2r[XB_OPM_OP_COUNT];
-	uint8_t d1l[XB_OPM_OP_COUNT];
-	uint8_t rr[XB_OPM_OP_COUNT];
+	uint8_t ame[XB_OPM_OP_COUNT];
 } XtOpmPatch;
 
 typedef struct XtAdpcmPatch
