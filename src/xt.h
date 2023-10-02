@@ -76,45 +76,34 @@ typedef struct XtChannelState
 	};
 } XtChannelState;
 
-// Configuration data that should persist between sessions.
-typedef struct XtConfig
-{
-	int16_t row_highlight[2];
-} XtConfig;
-
 typedef struct Xt
 {
-	XtTrack track;
-	// TODO: Channel allocation should be dynamic, and size stored here. This
-	// is to allow for flexible configurations.
-	// TODO: Channel type should always have parity with the current XtTrack.
+	const XtTrack *track;
+
+	// Playback state.
 	XtChannelState chan[XT_TOTAL_CHANNEL_COUNT];
-	XtConfig config;
 
-	uint8_t pitch_table[8 * 12];
-
-	int16_t current_frame;  // Index into the entire track.
+	// Position in track
+	int16_t current_frame;       // Index into the entire track.
 	int16_t current_phrase_row;  // Index into the current phrase.
 
-	int16_t current_ticks_per_row;  // Ticks per row.
+	// Playback timing
+	int16_t current_ticks_per_row;  // Ticks per phrase row.
 	int16_t tick_counter;  // Counts down from the period.
-	int16_t timer_period;  // Period of timer ticks.
+	int16_t timer_period;  // Period of timer ticks (OPM).
 
 	bool noise_enable;
 
+	bool repeat_frame;  // Repeats just the current frame.
 	bool playing;
-	int16_t repeat_frame;
 } Xt;
 
-// TODO: Disk format for a track.
-
-void xt_init(Xt *xt);
+void xt_init(Xt *xt, const XtTrack *track);
 void xt_poll(Xt *xt);
 void xt_update_opm_registers(Xt *xt);
 
-// -1 to resume playback at current frame
 // repeat to cause it to play the same frame repeatedly
-void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat);
+void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame);
 void xt_stop_playing(Xt *xt);
 bool xt_is_playing(const Xt *xt);
 void xt_get_playback_pos(const Xt *xt, int16_t *frame, int16_t *row);

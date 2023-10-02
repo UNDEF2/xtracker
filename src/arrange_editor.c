@@ -1,6 +1,5 @@
 #include "arrange_editor.h"
 #include <string.h>
-#include "ui/cursor.h"
 #include "ui/fnlabels.h"
 #include "ui/metrics.h"
 #include "common.h"
@@ -14,10 +13,10 @@ void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r)
 
 static void draw_cursor(const XtArrangeEditor *a)
 {
-	const int16_t draw_x = XT_UI_ARRANGEMENT_X + XT_UI_ARRANGEMENT_TABLE_OFFS_X + (a->column * XT_UI_COL_SPACING);
-	const int16_t draw_y = XT_UI_ARRANGEMENT_Y + XT_UI_ARRANGEMENT_TABLE_OFFS_Y + (a->frame * XT_UI_ROW_SPACING);
-	xt_cursor_set(draw_x, draw_y, 1, 1, -1, /*line_hl=*/false);
-	xt_cursor_set(32, 32, 4, 4, -1, /*line_hl=*/true);
+//	const int16_t draw_x = XT_UI_ARRANGEMENT_X + XT_UI_ARRANGEMENT_TABLE_OFFS_X + (a->column * XT_UI_COL_SPACING);
+//	const int16_t draw_y = XT_UI_ARRANGEMENT_Y + XT_UI_ARRANGEMENT_TABLE_OFFS_Y + (a->frame * XT_UI_ROW_SPACING);
+//	xt_cursor_set(draw_x, draw_y, 1, 1, -1, /*line_hl=*/false);
+//	xt_cursor_set(32, 32, 4, 4, -1, /*line_hl=*/true);
 }
 
 static void push_frames_down(XtTrack *t, int16_t frame)

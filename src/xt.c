@@ -3,12 +3,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "xbase/ipl.h"
 #include "xbase/opm.h"
 #include "util/transpose.h"
 
 //
-// OPM interaction functions
+// OPM interaction
 //
+
+// Pitch table for OPM frequencies calculated at init time.
+static uint8_t s_pitch_table[8 * 12];
 
 // Sets TL for a patch, accounting for the current amplitude value.
 static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
@@ -219,7 +223,7 @@ static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
 		opm_state->patch_no = cell->inst;
 		xt_set_opm_patch_full(opm_state);
 	}
-	opm_state->patch = xt->track.instruments[cell->inst].opm;
+	opm_state->patch = xt->track->instruments[cell->inst].opm;
 
 	if (cell->note == XT_NOTE_OFF)
 	{
@@ -301,20 +305,20 @@ static inline void xt_playback_counters(Xt *xt)
 	{
 		xt->tick_counter = 0;
 		xt->current_phrase_row++;
-		if (xt->current_phrase_row >= xt->track.phrase_length)
+		if (xt->current_phrase_row >= xt->track->phrase_length)
 		{
 			xt->current_phrase_row = 0;
 			if (!xt->repeat_frame) xt->current_frame++;
-			if (xt->current_frame >= xt->track.num_frames)
+			if (xt->current_frame >= xt->track->num_frames)
 			{
-				if (xt->track.loop_point < 0)
+				if (xt->track->loop_point < 0)
 				{
 					xt->playing = false;
 					xt->current_frame = 0;
 				}
 				else
 				{
-					xt->current_frame = xt->track.loop_point;
+					xt->current_frame = xt->track->loop_point;
 				}
 			}
 		}
@@ -339,37 +343,31 @@ void channel_reset(XtChannelState *chan, int16_t voice)
 	}
 }
 
-void xt_init(Xt *xt)
+void xt_init(Xt *xt, const XtTrack *track)
 {
 	memset(xt, 0, sizeof(*xt));
-
-	// Set default settings.
-	xt->config.row_highlight[0] = 4;
-	xt->config.row_highlight[1] = 16;
+	xt->track = track;
 
 	// Populate pitch table.
 	uint16_t pnum = 0;
-	for (uint16_t i = 0; i < ARRAYSIZE(xt->pitch_table); i++)
+	for (uint16_t i = 0; i < ARRAYSIZE(s_pitch_table); i++)
 	{
-		xt->pitch_table[i] = pnum++;
+		s_pitch_table[i] = pnum++;
 		if ((pnum & 3) == 3) pnum++;
 	}
 
-	// Set channel types.
+	// Set up channels based on track data.
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
-		xt->chan[i].type = (i < XB_OPM_VOICE_COUNT) ? XT_CHANNEL_OPM : XT_CHANNEL_ADPCM;
+		xt->chan[i].type = track->channel_data[i].type;
 		channel_reset(&xt->chan[i], i);
 	}
-
-	// TODO: Init/allocate channels and their types based on the track info.
-
 }
 
 void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 {
-	const XtTrackChannelData *channel_data = &xt->track.channel_data[i];
-	const uint16_t phrase_idx = xt->track.frames[xt->current_frame].phrase_id[i];
+	const XtTrackChannelData *channel_data = &xt->track->channel_data[i];
+	const uint16_t phrase_idx = xt->track->frames[xt->current_frame].phrase_id[i];
 	const XtPhrase *phrase = &channel_data->phrases[phrase_idx];
 
 	// The current cell.
@@ -423,12 +421,12 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 
 	uint8_t kf = pnum << 2;
 	uint8_t kc_idx = pnum >> 6;
-	if (kc_idx >= ARRAYSIZE(xt->pitch_table))
+	if (kc_idx >= ARRAYSIZE(s_pitch_table))
 	{
-		kc_idx = ARRAYSIZE(xt->pitch_table) - 1;
+		kc_idx = ARRAYSIZE(s_pitch_table) - 1;
 		kf = 0xFC; // max out KF.
 	}
-	uint8_t kc = xt->pitch_table[kc_idx];
+	uint8_t kc = s_pitch_table[kc_idx];
 	opm_state->reg_kf_data = kf;
 	opm_state->reg_kc_data = kc;
 
@@ -463,18 +461,21 @@ void xt_poll(Xt *xt)
 		}
 	}
 
+	xb_opm_set_clka_period(xt->timer_period);
+
 	xt_playback_counters(xt);
 }
 
 void xt_update_opm_registers(Xt *xt)
 {
 	if (!xt->playing) return;
+
+	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	// Commit registers based on new state.
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
 		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
 		XtOpmChannelState *opm_state = &xt->chan[i].opm;
-		
 		xt_set_opm_patch_tl(opm_state);
 
 		// Key state
@@ -492,6 +493,7 @@ void xt_update_opm_registers(Xt *xt)
 	}
 
 	xb_opm_commit();
+	xb_set_ipl(old_ipl);
 }
 
 static inline void cut_all_opm_sound(void)
@@ -508,29 +510,33 @@ static inline void cut_all_opm_sound(void)
 	xb_opm_commit();
 }
 
-void xt_start_playing(Xt *xt, int16_t frame, uint16_t repeat)
+void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
 {
-	for (uint16_t i = 0; i < XB_OPM_VOICE_COUNT; i++)
-	{
-		xb_opm_set_key_on(i, 0);
-	}
+	cut_all_opm_sound();
 
-	xb_opm_commit();
-	xt->repeat_frame = repeat;
-	xt->playing = true;
-	xt->current_ticks_per_row = xt->track.ticks_per_row;
-	xt->tick_counter = 0;
+	xt->current_frame = frame;
+	xt->repeat_frame = repeat_frame;
 
-	if (frame >= 0) xt->current_frame = frame;
-	if (xt->current_frame >= xt->track.num_frames)
-	{
-		xt->current_frame = xt->track.num_frames - 1;
-	}
 	xt->current_phrase_row = 0;
+	xt->tick_counter = 0;
+	xt->noise_enable = false;
+
+	// Initial state that comes from the track.
+	xt->timer_period = xt->track->timer_period;
+	xt->current_ticks_per_row = xt->track->ticks_per_row;
+
+	// Limit an unreasonable frame request
+	if (xt->current_frame >= xt->track->num_frames)
+	{
+		xt->current_frame = xt->track->num_frames - 1;
+	}
+
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
 		channel_reset(&xt->chan[i], i);
 	}
+
+	xt->playing = true;
 }
 
 void xt_stop_playing(Xt *xt)

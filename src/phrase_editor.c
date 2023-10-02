@@ -225,6 +225,13 @@ static void draw_normal_cursor(const XtPhraseEditor *p)
 	}
 }
 
+void xt_phrase_editor_on_focus_acquired(XtPhraseEditor *p)
+{
+	p->state = EDITOR_NORMAL;
+	cursor_update_cam_column(p);
+	draw_normal_cursor(p);
+}
+
 static void draw_select_region(const XtPhraseEditor *p)
 {
 	int16_t from_x = get_x_for_column(p->select.from_column, p->select.from_sub_pos) - xt_phrase_editor_get_cam_x(p);

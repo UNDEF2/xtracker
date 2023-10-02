@@ -130,6 +130,7 @@ typedef struct XtTrackChannelData
 typedef struct XtTrack
 {
 	char title[256];
+	int16_t row_highlight[2];
 	// One "frame" is a row in the arrange table. For each column a "phrase" is
 	// referenced by number.
 	int16_t num_frames;
@@ -155,6 +156,9 @@ typedef struct XtTrack
 
 	char memo[1024];
 } XtTrack;
+
+// TODO: Disk format for a track.
+// TODO: Disk load/save functions.
 
 XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);
 

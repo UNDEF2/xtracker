@@ -8,7 +8,7 @@
 static const uint16_t kpcg_palette[] =
 {
 	// Line 1 - Normal rows
-	XB_PAL_RGB8(0x10, 0x10, 0x10),
+	XB_PAL_RGB8(0x00, 0x00, 0x00),
 	XB_PAL_RGB8(0x50, 0x50, 0x50),  // Separator
 	XB_PAL_RGB8(0x30, 0x30, 0x30),  // Empty data grey
 	XB_PAL_RGB8(0xB0, 0xB0, 0xB0),  // Note column

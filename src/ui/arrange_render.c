@@ -1,11 +1,10 @@
 #include "ui/arrange_render.h"
-#include <string.h>
-
-#include "util/cgprint.h"
-#include "common.h"
-#include "xt_palette.h"
-
 #include "ui/metrics.h"
+#include "ui/section_title.h"
+#include "util/cgprint.h"
+#include "xt_palette.h"
+#include "common.h"
+#include <string.h>
 
 // Set up the XtArrange struct for its first render and further use.
 void xt_arrange_renderer_init(XtArrangeRenderer *a)
@@ -32,23 +31,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 	const int16_t kbase_h = XT_UI_AREA_H - kbase_y - 8;  // Space for the channel indicators
 	if (!a->backing_drawn)
 	{
-		// Back black rectangle area.
-		cgbox(XT_UI_PLANE, XT_PAL_BACK, kbase_x, kbase_y, kbase_w, kbase_h);
-
-		// Title.
-		cgprint(XT_UI_PLANE, XT_PAL_ACCENT1, "Arrangement Table",
-		        kbase_x + XT_UI_TITLEBAR_TEXT_OFFS_X,
-		        kbase_y + XT_UI_TITLEBAR_TEXT_OFFS_Y);
-
-		// Accent line (vert)
-		cgbox(XT_UI_PLANE, XT_PAL_ACCENT2,
-		      kbase_x, kbase_y,
-		      1, XT_UI_TITLEBAR_LINE_H);
-		// Accent line (horiz)
-		cgbox(XT_UI_PLANE, XT_PAL_ACCENT2,
-		      kbase_x, kbase_y + XT_UI_TITLEBAR_LINE_H,
-		      kbase_w, 1);
-
+		ui_section_title_draw("Arrangement Title", kbase_x, kbase_y, kbase_w, kbase_h);
 		a->backing_drawn = true;
 	}
 
@@ -137,7 +120,8 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 				cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
 				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
 				cgprint(XT_UI_PLANE, pal, buffer, cell_x, cell_y);
-				// Highlighted cells get marked for potential repaint
+				// Highlighted cells get marked for potential repaint so if it
+				// is no longer highlighted it gets put back to normal.
 				if (is_editor_col && is_center_row) current->phrase_id[j] = -1;
 			}
 

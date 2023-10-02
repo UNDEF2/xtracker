@@ -5,13 +5,24 @@
 
 #include <stdbool.h>
 
-void ui_chanlabel_set(uint16_t i, uint16_t num)
+void ui_chanlabel_set(uint16_t i, uint16_t num, XtChannelType type)
 {
 	// TODO: Enums / something legible instead of 8 for FM Channel count
 	const int16_t draw_x = (i * XT_UI_CHANLABEL_W);
-	const bool fm_label = (num < 8);
-	const char *name = (fm_label) ? "FM" : "PCM";
-	const int16_t name_len = (fm_label) ? 2 : 3;
+	const char *name = "...";
+	switch (type)
+	{
+		case XT_CHANNEL_OPM:
+			name = "OPM";
+			break;
+		case XT_CHANNEL_ADPCM:
+			name = "PCM";
+			break;
+		default:
+			break;
+
+	}
+	static const int16_t name_len = 3;
 	const int16_t name_offs = ((XT_UI_CHANLABEL_W / 2) + 1) - ((name_len + 1) * 6 / 2);
 
 	cgtile(XT_UI_PLANE, draw_x, XT_UI_CHANLABEL_Y, 0xB0,

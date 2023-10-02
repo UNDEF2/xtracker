@@ -37,7 +37,7 @@ typedef struct XtTrackRenderer
 	// "Camera" position.
 	int16_t cam_x, cam_y;
 
-	// Shadow copies of the row highlight option from Xt.XtConfig, updated in
+	// Shadow copies of the row highlight option from the track, updated in
 	// xt_track_renderer_tick(). When a new value is taken, NT1 is redrawn
 	// accordingly.
 	int16_t row_highlight[2];
@@ -47,7 +47,7 @@ void xt_track_renderer_init(XtTrackRenderer *r);
 
 void xt_track_renderer_repaint_channel(XtTrackRenderer *r, uint16_t channel);
 
-void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame);
+void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame);
 
 void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y);
 

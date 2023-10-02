@@ -1,5 +1,5 @@
-#ifndef UI_INSTRUMENT_RENDER_H
-#define UI_INSTRUMENT_RENDER_H
+#ifndef UI_REGDATA_RENDER_H
+#define UI_REGDATA_RENDER_H
 
 #include "xt_track.h"
 #include "xt_instrument.h"
@@ -7,11 +7,10 @@
 
 #include <stdbool.h>
 
-typedef struct XtInstrumentRenderer
+typedef struct XtRegdataRenderer
 {
 	// Data for currently drawn instrument.
 	XtInstrument data;
-	int16_t instr_num;
 
 	// Edit interface vars
 	struct
@@ -19,19 +18,20 @@ typedef struct XtInstrumentRenderer
 		int16_t row, column;  // Selection pos
 	} edit;
 
-	bool backing_drawn;
-} XtInstrumentRenderer;
+	bool full_repaint;
+	bool data_repaint;
+} XtRegdataRenderer;
 
 // Set up the XtInstrument struct for its first render and further use.
-void xt_instrument_renderer_init(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p);
+void xt_regdata_renderer_init(XtRegdataRenderer *a, XtTrack *t, XtPhraseEditor *p);
 
 // Draw the instrumentment table as-needed based on track data and the provided
 // navigation position. Pass -1 to the row or column parameters to not update
 // positioning.
-void xt_instrument_renderer_tick(XtInstrumentRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num);
+void xt_regdata_renderer_tick(XtRegdataRenderer *a, XtTrack *t, XtPhraseEditor *p, int16_t instr_num);
 
 // Mark all frames and the border as needing a redraw.
-void xt_instrument_renderer_request_redraw(XtInstrumentRenderer *a);
+void xt_regdata_renderer_request_redraw(XtRegdataRenderer *a, bool content_only);
 
 
-#endif  // UI_INSTRUMENT_RENDER_H
+#endif  // UI_REGDATA_RENDER_H

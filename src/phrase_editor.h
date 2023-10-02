@@ -76,6 +76,9 @@ void xt_phrase_editor_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e);
 void xt_phrase_editor_update_renderer(XtPhraseEditor *p, XtTrackRenderer *r);
 void xt_phrase_editor_set_camera(XtPhraseEditor *p, XtTrackRenderer *r);
 
+// Goes to standard (non-selecting) context and repaints the cursor.
+void xt_phrase_editor_on_focus_acquired(XtPhraseEditor *p);
+
 int16_t xt_phrase_editor_get_cam_x(const XtPhraseEditor *p);
 int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);
 

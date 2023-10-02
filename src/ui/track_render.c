@@ -196,25 +196,25 @@ void xt_track_renderer_repaint_channel(XtTrackRenderer *r, uint16_t channel)
 	r->chan[channel].dirty = true;
 }
 
-void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
+void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame)
 {
-	_Static_assert(ARRAYSIZE(r->chan) == ARRAYSIZE(xt->chan));
+	_Static_assert(ARRAYSIZE(r->chan) == ARRAYSIZE(track->channel_data));
 
-	int draw_x = 0;
+	int16_t draw_x = 0;
 
-	const int highlight_changed = (r->row_highlight[0] != xt->config.row_highlight[0] ||
-	                               r->row_highlight[1] != xt->config.row_highlight[1]);
+	const bool highlight_changed = (r->row_highlight[0] != track->row_highlight[0] ||
+	                                r->row_highlight[1] != track->row_highlight[1]);
 
 	if (highlight_changed)
 	{
-		r->row_highlight[0] = xt->config.row_highlight[0];
-		r->row_highlight[1] = xt->config.row_highlight[1];
+		r->row_highlight[0] = track->row_highlight[0];
+		r->row_highlight[1] = track->row_highlight[1];
 	}
 
 	for (int16_t i = 0; i < ARRAYSIZE(r->chan); i++)
 	{
 		XtChannelRenderState *chan = &r->chan[i];
-		const XtPhrase *phrase = xt_track_get_phrase(&xt->track, i, frame);
+		const XtPhrase *phrase = xt_track_get_phrase(track, i, frame);
 
 		// Check if a channel's phrase ID has changed, and mark the channel as
 		// dirty if so.
@@ -235,9 +235,9 @@ void xt_track_renderer_tick(XtTrackRenderer *r, Xt *xt, uint16_t frame)
 			chan->dirty = false;
 
 			const int16_t hl[2] = {r->row_highlight[0], r->row_highlight[1]};
-			const int16_t len = xt->track.phrase_length;
+			const int16_t len = track->phrase_length;
 
-			switch (xt->chan[i].type)
+			switch (track->channel_data[i].type)
 			{
 				default:
 					draw_empty_column(draw_x, len, hl[0], hl[1]);
