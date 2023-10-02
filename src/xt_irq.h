@@ -13,9 +13,7 @@ void xt_irq_wait_vbl(void);
 // Unregister IRQs.
 void xt_irq_shutdown(void);
 
-// Get the number of OPM timer ticks that have fired since the last call.
-uint16_t xt_get_opm_ticks(void);
-
-// TODO: Register OPM callback
+// Set period to -1 or handler to NULL to disable IRQ generation.
+void xt_irq_set_opm(void (*handler)(void), int16_t period);
 
 #endif  // XT_IRQ_H

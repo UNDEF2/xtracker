@@ -120,6 +120,7 @@ void set_demo_meta(void)
 // TODO: xt_ui.c
 typedef enum XtUiFocus
 {
+	XT_UI_FOCUS_INITIAL,
 	XT_UI_FOCUS_PATTERN,
 	XT_UI_FOCUS_ARRANGE,
 	XT_UI_FOCUS_INSTRUMENT,
@@ -127,6 +128,7 @@ typedef enum XtUiFocus
 	XT_UI_FOCUS_ADPCM_MAPPING,
 	XT_UI_FOCUS_ADPCM_FILE,
 	XT_UI_FOCUS_FILE_DIALOGUE,
+	XT_UI_FOCUS_QUIT,
 } XtUiFocus;
 
 static void maybe_set_chanlabels(int16_t cam_x)
@@ -203,7 +205,7 @@ static void hack_load_track(const char *fname)
 	fclose(f);
 }
 
-static void hack_save_track(const char *fname)
+/*static void hack_save_track(const char *fname)
 {
 	FILE *f = fopen(fname, "wb");
 	if (!f) return;
@@ -211,7 +213,7 @@ static void hack_save_track(const char *fname)
 	// fwrite(&s_xt.track, 1, sizeof(s_xt.track), f);
 
 	fclose(f);
-}
+}*/
 
 static void update_scroll(void)
 {
@@ -233,6 +235,130 @@ static void update_scroll(void)
 	}
 }
 
+static void render(XtUiFocus focus)
+{
+	switch (focus)
+	{
+		default:
+			break;
+		case XT_UI_FOCUS_PATTERN:
+			xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
+			xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
+			                         s_arrange_editor.frame, s_arrange_editor.column);
+			break;
+		case XT_UI_FOCUS_ARRANGE:
+			xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
+			                         s_arrange_editor.frame, s_arrange_editor.column);
+			break;
+		case XT_UI_FOCUS_INSTRUMENT:
+			xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track,
+			                            &s_phrase_editor, s_phrase_editor.instrument);
+			break;
+	}
+}
+
+static XtUiFocus handle_keys(XtUiFocus focus)
+{
+	XtUiFocus next_focus = focus;
+	XBKeyEvent key_event;
+
+	if (focus == XT_UI_FOCUS_INITIAL)
+	{
+		next_focus = XT_UI_FOCUS_PATTERN;
+	}
+
+	while (xb_keys_event_pop(&key_event))
+	{
+		maybe_set_fnlabels(&key_event, next_focus, focus);
+
+		if (key_event.modifiers & XB_KEY_MOD_KEY_UP) continue;
+		// General key inputs that are always active.
+		switch (key_event.name)
+		{
+			default:
+				break;
+			case XB_KEY_CR:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				toggle_playback(key_event);
+				break;
+
+			case XB_KEY_HELP:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				display_config_cycle_modes();
+				break;
+
+			case XB_KEY_BREAK:
+				next_focus = XT_UI_FOCUS_QUIT;
+				break;
+
+			// Save
+			case XB_KEY_F6:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				// if (filename) hack_save_track(filename);
+				break;
+
+			// Focus changes
+			case XB_KEY_F7:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				next_focus = XT_UI_FOCUS_PATTERN;
+				break;
+
+			case XB_KEY_F8:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				next_focus = XT_UI_FOCUS_INSTRUMENT;
+				break;
+
+			case XB_KEY_F9:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				next_focus = XT_UI_FOCUS_ARRANGE;
+				xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
+				break;
+
+			case XB_KEY_F10:
+				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
+				next_focus = XT_UI_FOCUS_META;
+				break;
+		}
+
+		// Focus-specific key events.
+		switch (focus)
+		{
+			default:
+				break;
+
+			case XT_UI_FOCUS_PATTERN:
+				if (!s_xt.playing)
+				{
+					xt_phrase_editor_on_key(&s_phrase_editor,
+					                        &s_xt.track, key_event);
+					s_arrange_editor.frame = s_phrase_editor.frame;
+					s_arrange_editor.column = s_phrase_editor.column;
+				}
+				break;
+
+			case XT_UI_FOCUS_ARRANGE:
+				if (!s_xt.playing)
+				{
+					xt_arrange_editor_on_key(&s_arrange_editor,
+					                         &s_xt.track,
+					                         &s_track_renderer, key_event);
+					s_phrase_editor.frame = s_arrange_editor.frame;
+					s_phrase_editor.column = s_arrange_editor.column;
+				}
+				break;
+		}
+	}
+	return next_focus;
+}
+
+static void opm_irq_handler(void)
+{
+	xb_opm_set_timer_flags(OPM_TIMER_FLAG_IRQ_EN_A | OPM_TIMER_FLAG_LOAD_A | OPM_TIMER_FLAG_F_RESET_A);
+	xt_poll(&s_xt);
+	// TODO: If xt isn't playing, don't call this as keyjazz will need it
+	xt_update_opm_registers(&s_xt);
+}
+
 int main(int argc, char **argv)
 {
 	_dos_super(0);
@@ -245,7 +371,9 @@ int main(int argc, char **argv)
 
 	xt_init(&s_xt);
 
+	txprintf(0, 0, 1, "");
 	xt_irq_init();
+	xt_irq_set_opm(opm_irq_handler, 0x30);
 	xt_palette_init();
 
 	xb_keys_init(NULL);
@@ -278,14 +406,12 @@ int main(int argc, char **argv)
 
 	if (filename) hack_load_track(filename);
 
-	XtUiFocus focus = -1;
-	XtUiFocus next_focus = XT_UI_FOCUS_PATTERN;
+	XtUiFocus focus = XT_UI_FOCUS_PATTERN;
 
 	uint32_t elapsed = 0;
-	bool quit = false;
 
 	// The main loop.
-	while (!quit)
+	while (focus != XT_UI_FOCUS_QUIT)
 	{
 		//
 		// Input handling.
@@ -293,105 +419,15 @@ int main(int argc, char **argv)
 
 		xb_keys_poll();
 
-		XBKeyEvent key_event;
-
-		maybe_set_fnlabels(NULL, next_focus, focus);
-		focus = next_focus;
-
-		while (xb_keys_event_pop(&key_event))
-		{
-			maybe_set_fnlabels(&key_event, next_focus, focus);
-
-			if (key_event.modifiers & XB_KEY_MOD_KEY_UP) continue;
-			// General key inputs that are always active.
-			switch (key_event.name)
-			{
-				default:
-					break;
-				case XB_KEY_CR:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					toggle_playback(key_event);
-					break;
-
-				case XB_KEY_HELP:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					display_config_cycle_modes();
-					break;
-
-				case XB_KEY_BREAK:
-					quit = true;
-					break;
-
-				// Save
-				case XB_KEY_F6:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					if (filename) hack_save_track(filename);
-					break;
-
-				// Focus changes
-				case XB_KEY_F7:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_PATTERN;
-					break;
-
-				case XB_KEY_F8:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_INSTRUMENT;
-					break;
-
-				case XB_KEY_F9:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_ARRANGE;
-					xt_arrange_renderer_request_redraw(&s_arrange_renderer, /*content_only=*/false);
-					break;
-
-				case XB_KEY_F10:
-					if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-					next_focus = XT_UI_FOCUS_META;
-					break;
-			}
-
-			// Forwarding of key events to focus areas.
-			switch (focus)
-			{
-				default:
-					break;
-
-				case XT_UI_FOCUS_PATTERN:
-					if (!s_xt.playing)
-					{
-						xt_phrase_editor_on_key(&s_phrase_editor,
-						                        &s_xt.track, key_event);
-						s_arrange_editor.frame = s_phrase_editor.frame;
-						s_arrange_editor.column = s_phrase_editor.column;
-					}
-					break;
-
-				case XT_UI_FOCUS_ARRANGE:
-					if (!s_xt.playing)
-					{
-						xt_arrange_editor_on_key(&s_arrange_editor,
-						                         &s_xt.track,
-						                         &s_track_renderer, key_event);
-						s_phrase_editor.frame = s_arrange_editor.frame;
-						s_phrase_editor.column = s_arrange_editor.column;
-					}
-					break;
-			}
-		}
+		const XtUiFocus focus_prev = focus;
+		focus = handle_keys(focus);
+		maybe_set_fnlabels(NULL, focus, focus_prev);
 
 		//
 		// Main engine poll.
 		//
 
-		// TODO: tick based on timer
-		xt_poll(&s_xt);
-		xt_update_opm_registers(&s_xt);
-
-		if (xt_is_playing(&s_xt))
-		{
-			s_arrange_editor.frame = s_xt.current_frame;
-		}
+		if (xt_is_playing(&s_xt)) s_arrange_editor.frame = s_xt.current_frame;
 
 		// Rendering is done during VBlank, ideally.
 		xt_irq_wait_vbl();
@@ -400,26 +436,7 @@ int main(int argc, char **argv)
 		//
 		// Rendering.
 		//
-
-		switch (focus)
-		{
-			default:
-				break;
-			case XT_UI_FOCUS_PATTERN:
-				xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
-				xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
-				                         s_arrange_editor.frame, s_arrange_editor.column);
-				break;
-			case XT_UI_FOCUS_ARRANGE:
-				xt_arrange_renderer_tick(&s_arrange_renderer, &s_xt.track,
-				                         s_arrange_editor.frame, s_arrange_editor.column);
-				break;
-			case XT_UI_FOCUS_INSTRUMENT:
-				xt_instrument_renderer_tick(&s_instrument_renderer, &s_xt.track,
-				                            &s_phrase_editor, s_phrase_editor.instrument);
-				break;
-		}
-
+		render(focus);
 		update_scroll();
 
 		// Update the track renderer to repaint pattern data.
