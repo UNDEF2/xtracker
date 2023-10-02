@@ -2,7 +2,9 @@
 
 XtNote xt_transpose_note(XtNote note, int16_t semitones)
 {
-	if (note == XT_NOTE_NONE) return XT_NOTE_NONE;
+	if (note == XT_NOTE_NONE) return note;
+	if (note == XT_NOTE_OFF) return note;
+	if (note == XT_NOTE_CUT) return note;
 	int16_t octave = ((note & XT_NOTE_OCTAVE_MASK) >> 4) + semitones / 12;
 	int16_t tone = (note & XT_NOTE_TONE_MASK);
 
