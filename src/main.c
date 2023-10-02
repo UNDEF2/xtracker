@@ -483,7 +483,11 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				break;
 
 			case XT_UI_FOCUS_ARRANGE_EDIT:
-				if (key_event.name == XB_KEY_ESC) focus = XT_UI_FOCUS_PATTERN;
+				if (key_event.name == XB_KEY_ESC)
+				{
+					focus_on_pattern();
+					focus = XT_UI_FOCUS_PATTERN;
+				}
 				else if (!playing)
 				{
 					xt_arrange_editor_on_key(&s_arrange_editor,
@@ -491,6 +495,21 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					                         &s_track_renderer, key_event);
 					s_phrase_editor.frame = s_arrange_editor.frame;
 					s_phrase_editor.column = s_arrange_editor.column;
+				}
+				break;
+
+			case XT_UI_FOCUS_INSTRUMENT_SEL:
+				if (key_event.name == XB_KEY_ESC)
+				{
+					focus_on_pattern();
+					focus = XT_UI_FOCUS_PATTERN;
+				}
+				break;
+
+			case XT_UI_FOCUS_INSTRUMENT_EDIT:
+				if (key_event.name == XB_KEY_ESC)
+				{
+					focus = XT_UI_FOCUS_INSTRUMENT_SEL;
 				}
 				break;
 		}
