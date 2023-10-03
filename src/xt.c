@@ -44,7 +44,7 @@ static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
 			else
 			{
 				// Amplitude is 0x7F (loud) to 0x00 (quiet), but OPM TL operates in
-				// the opposite fashion, so we inevrt it to get attenuation.i
+				// the opposite fashion, so we invet it to get attenuation.
 				const int16_t tl_vol = 0x80 - patch->tl[j];
 				const int16_t adj_tl_vol = (tl_vol * opm_state->amplitude) >> 7;
 				const int16_t final_tl = 0x7F - adj_tl_vol;
@@ -461,18 +461,14 @@ void xt_poll(Xt *xt)
 		}
 	}
 
-	xb_opm_set_clka_period(xt->timer_period);
-
 	xt_playback_counters(xt);
 }
 
 void xt_update_opm_registers(Xt *xt)
 {
-	if (!xt->playing) return;
-
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	// Commit registers based on new state.
-	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
+	for (uint16_t i = 0; i < 8; i++)
 	{
 		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
 		XtOpmChannelState *opm_state = &xt->chan[i].opm;
@@ -512,7 +508,9 @@ static inline void cut_all_opm_sound(void)
 
 void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
 {
+	const uint8_t s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	cut_all_opm_sound();
+	xb_opm_set_clka_period(xt->timer_period);
 
 	xt->current_frame = frame;
 	xt->repeat_frame = repeat_frame;
@@ -524,6 +522,7 @@ void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
 	// Initial state that comes from the track.
 	xt->timer_period = xt->track->timer_period;
 	xt->current_ticks_per_row = xt->track->ticks_per_row;
+
 
 	// Limit an unreasonable frame request
 	if (xt->current_frame >= xt->track->num_frames)
@@ -537,12 +536,15 @@ void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
 	}
 
 	xt->playing = true;
+	xb_set_ipl(s_old_ipl);
 }
 
 void xt_stop_playing(Xt *xt)
 {
+	const uint8_t s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	cut_all_opm_sound();
 	xt->playing = false;
+	xb_set_ipl(s_old_ipl);
 }
 
 bool xt_is_playing(const Xt *xt)

@@ -40,6 +40,8 @@ static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
 static XtArrangeEditor s_arrange_editor;
 
+static const char *s_filename;
+
 //
 // Interrupts (OPM timer and Vertical raster)
 //
@@ -108,31 +110,31 @@ void set_demo_instruments(void)
 	memset(ins, 0, sizeof(*ins));
 	ins->type = XT_CHANNEL_OPM;
 	ins->valid = true;
-	ins->opm.fl = 7;
+	ins->opm.fl = 0;
 	ins->opm.con = 3;
 
-	ins->opm.mul[0] = 8;
-	ins->opm.tl[0] = 30;
+	ins->opm.mul[0] = 2;
+	ins->opm.tl[0] = 127;
 	ins->opm.ar[0] = 27;
 	ins->opm.d1r[0] = 14;
 	ins->opm.d1l[0] = 3;
 	ins->opm.rr[0] = 10;
 
-	ins->opm.mul[1] = 2;
-	ins->opm.tl[1] = 45;
+	ins->opm.mul[1] = 1;
+	ins->opm.tl[1] = 127;
 	ins->opm.ar[1] = 31;
 	ins->opm.d1r[1] = 12;
 	ins->opm.d1l[1] = 3;
 	ins->opm.rr[1] = 10;
 
 	ins->opm.mul[2] = 0;
-	ins->opm.tl[2] = 15;
+	ins->opm.tl[2] = 127;
 	ins->opm.ar[2] = 31;
 	ins->opm.d1r[2] = 18;
 	ins->opm.d1l[2] = 5;
 	ins->opm.rr[2] = 10;
 
-	ins->opm.mul[3] = 0;
+	ins->opm.mul[3] = 1;
 	ins->opm.tl[3] = 6;
 	ins->opm.ar[3] = 31;
 	ins->opm.d1r[3] = 5;
@@ -161,35 +163,6 @@ void set_demo_instruments(void)
 		ins->opm.dt1[i] = val++;
 		ins->opm.dt2[i] = val++;
 		ins->opm.ame[i] = val++;
-	}
-}
-
-void set_demo_meta(void)
-{
-	s_track.num_frames = 1;
-	s_track.num_instruments = 1;
-	s_track.row_highlight[0] = 4;
-	s_track.row_highlight[1] = 16;
-
-	s_track.ticks_per_row = 6;
-	s_track.timer_period = 0x30;
-
-	s_track.phrase_length = 32;
-	s_track.loop_point = 0;
-
-	for (int16_t i = 0; i < ARRAYSIZE(s_track.channel_data); i++)
-	{
-		XtTrackChannelData *data = &s_track.channel_data[i];
-		if (i < 8)
-		{
-			data->type = XT_CHANNEL_OPM;
-			data->voice_number = i;
-		}
-		else
-		{
-			data->type = XT_CHANNEL_ADPCM;
-			data->voice_number = i;
-		}
 	}
 }
 
@@ -289,26 +262,6 @@ static void toggle_playback(XBKeyEvent key_event)
 done:
 	xb_set_ipl(old_ipl);
 }
-
-static void hack_load_track(const char *fname)
-{
-	FILE *f = fopen(fname, "rb");
-	if (!f) return;
-
-	// fread(&s_track, 1, sizeof(s_track), f);
-
-	fclose(f);
-}
-
-/*static void hack_save_track(const char *fname)
-{
-	FILE *f = fopen(fname, "wb");
-	if (!f) return;
-
-	// fwrite(&s_track, 1, sizeof(s_track), f);
-
-	fclose(f);
-}*/
 
 static void update_scroll(void)
 {
@@ -465,7 +418,7 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 
 			case XB_KEY_F10:
 				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				// if (filename) hack_save_track(filename);
+				if (s_filename) xt_track_save_to_file(&s_track, s_filename);
 				break;
 		}
 
@@ -483,6 +436,12 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					s_arrange_editor.frame = s_phrase_editor.frame;
 					s_arrange_editor.column = s_phrase_editor.column;
 				}
+				else
+				{
+					s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
+					s_arrange_editor.frame = s_xt.current_frame;
+					xb_set_ipl(s_old_ipl);
+				}
 				break;
 
 			case XT_UI_FOCUS_ARRANGE_EDIT:
@@ -491,13 +450,22 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					focus_on_pattern();
 					focus = XT_UI_FOCUS_PATTERN;
 				}
-				else if (!playing)
+				else
 				{
-					xt_arrange_editor_on_key(&s_arrange_editor,
-					                         &s_track,
-					                         &s_track_renderer, key_event);
-					s_phrase_editor.frame = s_arrange_editor.frame;
-					s_phrase_editor.column = s_arrange_editor.column;
+					if (!playing)
+					{
+						xt_arrange_editor_on_key(&s_arrange_editor,
+						                         &s_track,
+						                         &s_track_renderer, key_event);
+						s_phrase_editor.frame = s_arrange_editor.frame;
+						s_phrase_editor.column = s_arrange_editor.column;
+					}
+					else
+					{
+						s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
+						s_arrange_editor.frame = s_xt.current_frame;
+						xb_set_ipl(s_old_ipl);
+					}
 				}
 				break;
 
@@ -526,17 +494,17 @@ int main(int argc, char **argv)
 
 	display_config_init();
 	txprint_init();
+	xt_palette_init();
+	xb_keys_init(NULL);
+
+	// Interrupt configuration.
+	if (!interrupts_init()) goto done;
 
 	cgprint_load("RES\\CGDAT.BIN");
-	txprintf(0, 16, 1, "");
+	txprintf(0, 16, 0, "");
 
 	xt_init(&s_xt, &s_track);
-
-	xt_palette_init();
-
-	xb_keys_init(NULL);
 	xt_cursor_init();
-
 	xt_track_renderer_init(&s_track_renderer);
 	xt_arrange_renderer_init(&s_arrange_renderer);
 	xt_arrange_editor_init(&s_arrange_editor, &s_arrange_renderer);
@@ -545,19 +513,17 @@ int main(int argc, char **argv)
 
 	ui_backing_draw();
 
-	// Set up xt with some test data
-	set_demo_meta();
-	set_demo_instruments();
+	// Track file load.
+	bool file_loaded = false;
+	if (argc > 1) s_filename = argv[1];
+	if (s_filename) file_loaded = xt_track_load_from_file(&s_track, s_filename);
 
-	// HACK LOADING
-	const char *filename = NULL;
-	if (argc > 1) filename = argv[1];
-	if (filename) hack_load_track(filename);
-
-	// Interrupt configuration.
-	if (!interrupts_init()) goto done;
-
-	// TODO: This should really be done based on an actual file and not test garbage
+	if (!file_loaded)
+	{
+		xt_track_init(&s_track);
+		set_demo_instruments();
+		if (s_filename) xt_track_save_to_file(&s_track, s_filename);
+	}
 
 	// The interface starts in pattern mode, and we kick off the first draw.
 	XtUiFocus focus = XT_UI_FOCUS_PATTERN;

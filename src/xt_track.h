@@ -5,7 +5,7 @@
 
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
-#define XT_PHRASES_PER_CHANNEL 256
+#define XT_PHRASES_PER_CHANNEL 128
 
 #define XT_TOTAL_CHANNEL_COUNT (8 + 4)
 
@@ -111,9 +111,8 @@ typedef struct XtFrame
 
 typedef struct XtSample
 {
-	char *name[64];
-	int16_t data_valid;
-	int16_t data_size;
+	char name[64];
+	size_t data_size;
 	uint8_t *data;
 } XtSample;
 
@@ -157,9 +156,10 @@ typedef struct XtTrack
 	char memo[1024];
 } XtTrack;
 
-// TODO: Disk format for a track.
-// TODO: Disk load/save functions.
-
 XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);
+
+void xt_track_init(XtTrack *t);
+bool xt_track_save_to_file(const XtTrack *t, const char *fname);
+bool xt_track_load_from_file(XtTrack *t, const char *fname);
 
 #endif  // _XT_TRACK_H
