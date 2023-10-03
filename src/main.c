@@ -242,6 +242,9 @@ static void draw_fnlabels(XtUiFocus focus, bool ctrl_held)
 			break;
 	}
 
+	static bool right_drawn = false;
+	if (right_drawn) return;
+	right_drawn = true;
 	ui_fnlabel_set(5, "Arrange");
 	ui_fnlabel_set(6, "Instr");
 	ui_fnlabel_set(7, "Meta");

@@ -34,17 +34,8 @@ static volatile uint16_t *get_cgram_ptr(int16_t plane, int16_t x, int16_t y)
 void cgprint(int16_t plane, uint16_t attr, const char *s,
              int16_t x, int16_t y)
 {
-	static const int16_t cell_w = 6;
 	volatile uint16_t *dest = get_cgram_ptr(plane, x, y);
-
-	char c;
-	while ((c = (*s)))
-	{
-		const uint8_t *src = &s_cgdat[c * 64];
-		cgprint_6x8_sub(src, dest, attr);
-		dest += cell_w;
-		s++;
-	};
+	cgprint_string_sub(s_cgdat, dest, s, attr);
 }
 
 // Draw a CG graphic to the CG plane
@@ -56,7 +47,7 @@ void cgtile(int16_t plane, int16_t x, int16_t y,
 	cgprint_8x8_sub(&s_cgdat[tile * 64], dest, w, h);
 }
 
-void cgbox(int16_t plane, uint16_t attr,
+void cgbox(int16_t plane, uint8_t attr,
            int16_t x, int16_t y,
            int16_t w, int16_t h)
 {

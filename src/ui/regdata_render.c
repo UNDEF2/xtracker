@@ -67,6 +67,17 @@ static void opm_reg_paint(XtOpmPatch *cur, const XtOpmPatch *new, bool force)
 		draw_hex1(kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
 		          kbase_y + XT_UI_REGDATA_CON_OFFS_Y,
 		          new->con);
+
+		static const uint16_t con_tileidx[] =
+		{
+			0x100, 0x110, 0x120, 0x130, 0x140, 0x150, 0x160, 0x170
+		};
+		cgtile(XT_UI_PLANE,
+		       kbase_x + XT_UI_REGDATA_CONCHART_OFFS_X,
+		       kbase_y + XT_UI_REGDATA_CONCHART_OFFS_Y,
+		       con_tileidx[new->con], 4, 4);
+
+
 	}
 	if (force || cur->pms != new->pms)
 	{

@@ -8,61 +8,57 @@
 .set	CGPRINT_CHAR_H, 8
 
 #
-# void cgprint_6x8_sub(const uint8_t *src_addr, volatile uint16_t *dest_addr,
-#                      uint16_t attr);
+# void cgprint_string_sub(const uint8_t *cgdat, volatile uint16_t *dest_addr,
+#                         const char *str, uint16_t attr);
 #
-	.global	cgprint_6x8_sub
-cgprint_6x8_sub:
-.set	SPID, 4+(0*0)
-.set	ARG_SRC_ADDR, SPID+(0*4)
+	.global	cgprint_string_sub
+cgprint_string_sub:
+.set	SPID, 4+(2*4)
+.set	ARG_CGDAT, SPID+(0*4)
 .set	ARG_DEST_ADDR, SPID+(1*4)
-.set	ARG_ATTR, SPID+(2*4)+2
-
-	/* a0 := src, a1 := dest */
-	move.l	ARG_SRC_ADDR(sp), a0
+.set	ARG_STR, SPID+(2*4)
+.set	ARG_ATTR, SPID+(3*4)+2
+	movem.l	a2-a3, -(sp)
+	move.l	ARG_STR(sp), a0
 	move.l	ARG_DEST_ADDR(sp), a1
-
-	/* d1 holds the color */
-	moveq	#0, d1
+	move.l	ARG_CGDAT(sp), a2
 	move.w	ARG_ATTR(sp), d1
-	bmi	1f  /* Ignore alpha flag */
+	andi.w	#0x00FF, d1
 
-	andi.w	#0x00FF, d1  /* Only keep color from attribute data */
-	.rept	CGPRINT_CHAR_H
-
-	/* Draw horizontal pixels from the tile */
-	.rept	CGPRINT_CHAR_W
+str_copy_top:
+	moveq	#0, d0
 	move.b	(a0)+, d0
-	and.w	d1, d0     /* mask against color */
-	beq	9f  /* Skip transparent pixels */
-	move.w	d0, (a1)
+	beq	str_done
+	/* Multiply d0 by 64 to get tile index */
+	lsl.l	#6, d0
+	lea	(a2, d0.l), a3
+
+		.rept	CGPRINT_CHAR_H
+
+			/* Draw horizontal pixels from the tile */
+			.rept	CGPRINT_CHAR_W
+			move.b	(a3)+, d0
+			beq	9f  /* Skip transparent pixels */
+			and.w	d1, d0     /* mask against color */
+			move.w	d0, (a1)
 9:
-	addq	#2, a1
-	.endr  /* CGPRINT_CHAR_W */
+			addq	#2, a1
+			.endr  /* CGPRINT_CHAR_W */
 
-	/* Next row */
-	addq	#2, a0  /* Skip unused 2px from tile */
-	adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
+		/* Next row */
+		addq	#2, a3  /* Skip unused 2px from tile */
+		adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
 
-	.endr  /* CGPRINT_CHAR_H */
+		.endr  /* CGPRINT_CHAR_H */
+
+	suba.w	#(((CGPRINT_CHAR_H * 512) - CGPRINT_CHAR_W) * 2).l, a1
+
+	bra	str_copy_top
+
 	rts
 
-1:  /* Alpha ignore version */
-	andi.w	#0x00FF, d1  /* Only keep color from attribute data */
-	.rept	CGPRINT_CHAR_H
-
-	/* Draw horizontal pixels from the tile */
-	.rept	CGPRINT_CHAR_W
-	move.b	(a0)+, d0
-	and.w	d1, d0     /* mask against color */
-	move.w	d0, (a1)+
-	.endr  /* CGPRINT_CHAR_W */
-
-	/* Next row */
-	addq	#2, a0  /* Skip unused 2px from tile */
-	adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
-
-	.endr  /* CGPRINT_CHAR_H */
+str_done:
+	movem.l	(sp)+, a2-a3
 	rts
 
 #
@@ -102,9 +98,10 @@ tile_w_inner:
 	/* Draw an 8x8 tile from a0 to CG plane at a1 */
 	.rept	CGPRINT_TILE_H
 	/* Draw horizontal pixels from the tile */
-	.rept	CGPRINT_TILE_W
-	move.b	(a0)+, d0
-	move.w	d0, (a1)+
+	.rept	CGPRINT_TILE_W / 4
+	move.l	(a0)+, d0
+	movep.l	d0, 1(a1)
+	addq	#8, a1
 	.endr  /* CGPRINT_TILE_W */
 
 	/* Next row */
@@ -112,14 +109,14 @@ tile_w_inner:
 	.endr  /* CGPRINT_TILE_H */
 
 	/* Move back up to where we started, and then 8px to the right */
-	suba.w	#(((8 * 512) - 8) * 2).l, a1
+	suba.w	#(((CGPRINT_TILE_H * 512) - CGPRINT_TILE_W) * 2).l, a1
 
 	dbf	d1, tile_w_inner
 
 
 	/* With a row of tiles done, move a1 back and move down a line */
 	move.l	(sp)+, a1
-	adda.w	#((8 * 512) * 2).l, a1
+	adda.w	#((CGPRINT_TILE_H * 512) * 2).l, a1
 
 	dbf	d7, tile_h_outer
 
@@ -128,28 +125,45 @@ tile_w_inner:
 	rts
 
 #
-# void cgprint_line_fill_sub(volatile uint16_t *dest_addr, uint16_t val,
+# void cgprint_line_fill_sub(volatile uint16_t *dest_addr, uint8_t val,
 #                            uint16_t w);
 #
 	.global	cgprint_line_fill_sub
 cgprint_line_fill_sub:
 .set	SPID, 4+(0*0)
 .set	ARG_DEST_ADDR, SPID+(0*4)
-.set	ARG_VAL, SPID+(1*4)+2
+.set	ARG_VAL, SPID+(1*4)+3
 .set	ARG_W, SPID+(2*4)+2
 	move.l	ARG_DEST_ADDR(sp), a0
-	move.w	ARG_VAL(sp), d0
+
+	/* Fill d0 with 4px dupes of the 8-bit value */
+	moveq	#0, d0
+	move.b	ARG_VAL(sp), d0
 	move.w	d0, d1
-	swap	d0
-	move.w	d1, d0
+	swap	d1
+	move.w	d0, d1
+	move.l	d1, d0
+	lsl.l	#8, d1
+	or.l	d1, d0
 
 # Check for common width divisions as minor optimization
 	move.w	ARG_W(sp), d1
-	btst	#0, d1
+	andi.b	#0x0F, d1
+	beq	line_copy_div16
+	move.w	ARG_W(sp), d1
+	andi.b	#0x07, d1
+	beq	line_copy_div8
+	move.w	ARG_W(sp), d1
+	andi.b	#0x03, d1
+	beq	line_copy_div4
+	move.w	ARG_W(sp), d1
+	andi.b	#0x01, d1
 	beq	line_copy_div2
+
 # Simple, slowest
 line_copy_nodiv:
-	subq	#1, d1
+	move.w	ARG_W(sp), d1
+	subq.w	#1, d1
 line_copy_top0:
 	move.w	d0, (a0)+
 	dbf	d1, line_copy_top0
@@ -157,9 +171,45 @@ line_copy_top0:
 
 # Two pixels at once
 line_copy_div2:
+	move.w	ARG_W(sp), d1
 	asr.w	#1, d1
-	subq	#1, d1
+	subq.w	#1, d1
 line_copy_top2:
-	move.l	d0, (a0)+
+	movep.w	d0, 1(a0)
+	addq.l	#4, a0
 	dbf	d1, line_copy_top2
+	rts
+
+line_copy_div4:
+	move.w	ARG_W(sp), d1
+	asr.w	#2, d1
+	subq.w	#1, d1
+line_copy_top4:
+	movep.l	d0, 1(a0)
+	lea	8(a0), a0
+	dbf	d1, line_copy_top4
+	rts
+
+line_copy_div8:
+	move.w	ARG_W(sp), d1
+	asr.w	#3, d1
+	subq.w	#1, d1
+line_copy_top8:
+	movep.l	d0, 1(a0)
+	movep.l	d0, 9(a0)
+	lea	16(a0), a0
+	dbf	d1, line_copy_top8
+	rts
+
+line_copy_div16:
+	move.w	ARG_W(sp), d1
+	asr.w	#4, d1
+	subq.w	#1, d1
+line_copy_top16:
+	movep.l	d0, 1(a0)
+	movep.l	d0, 9(a0)
+	movep.l	d0, 17(a0)
+	movep.l	d0, 25(a0)
+	lea	32(a0), a0
+	dbf	d1, line_copy_top16
 	rts
