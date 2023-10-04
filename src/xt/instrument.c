@@ -38,14 +38,8 @@ XtResult xt_instrument_load_from_file(FILE *f, XtInstrument *out)
 	const int read = fread(out, sizeof(*out), 1, f);
 	if (read < sizeof(*out))
 	{
-		out->valid = 0;
 		const XtResult ret = feof(f) ? XT_RES_FILE_TRUNCATED : XT_RES_FILE_READ_ERROR;
 		return ret;
-	}
-
-	if (!out->valid)
-	{
-		return XT_RES_BAD_FORMAT;
 	}
 
 	return XT_RES_OK;
@@ -53,11 +47,6 @@ XtResult xt_instrument_load_from_file(FILE *f, XtInstrument *out)
 
 XtResult xt_instrument_write_to_file(const XtInstrument *in, FILE *f)
 {
-	if (!in->valid)
-	{
-		return XT_RES_BAD_FORMAT;
-	}
-
 	// Write header.
 	for (int i = 0; i < ARRAYSIZE(kheader_magic); i++)
 	{

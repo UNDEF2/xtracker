@@ -5,6 +5,7 @@
 #include "ui/track_render.h"
 #include "xbase/keys.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 typedef enum XtEditorCursorSubPos
 {
@@ -33,11 +34,11 @@ typedef struct XtPhraseEditor
 	int16_t row;  // Index into the Frame.
 	int16_t column;  // Horizontally, which column the cursor lies in.
 
-	int16_t instrument;  // Currently selected instrument number.
-	int16_t octave;  // Currently selected entry octave (for the bottom row).
-	int16_t step_size;  // Rows to go down after having entered a note.
+	uint16_t instrument;  // Currently selected instrument number.
+	uint16_t octave;  // Currently selected entry octave (for the bottom row).
+	uint16_t step_size;  // Rows to go down after having entered a note.
 
-	int8_t channel_dirty[XT_TOTAL_CHANNEL_COUNT];
+	bool channel_dirty[XT_TOTAL_CHANNEL_COUNT];
 	// TODO: Need to keep a mapping of which channels should be painted where
 	//       in order to support greater scrolling.
 	// TODO: Clipboard buffer, and all that...

@@ -76,7 +76,6 @@ static void xt_set_opm_patch_full(volatile XtOpmChannelState *opm_state)
 	xt_set_opm_patch_tl(opm_state);
 }
 
-
 //
 // Engine Functions
 //

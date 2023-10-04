@@ -112,14 +112,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 				if (is_center_row) pal = XT_PAL_ACCENT2;
 				if (is_editor_col && is_center_row) pal = XT_PAL_MAIN;  // TODO: Don't do this if editor is inactive?
 
-				// hex print for phrase ID
-				const uint8_t id = current->phrase_id[j];
-				char buffer[3] = {0};
-				buffer[0] = 0x10 | ((id & 0xF0) >> 4);
-				buffer[1] = 0x10 | (id & 0x0F);
-				cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
-				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
-				cgprint(XT_UI_PLANE, pal, buffer, cell_x, cell_y);
+				cgprint_hex2(XT_UI_PLANE, pal, cell_x, cell_y, current->phrase_id[j]);
 				// Highlighted cells get marked for potential repaint so if it
 				// is no longer highlighted it gets put back to normal.
 				if (is_editor_col && is_center_row) current->phrase_id[j] = -1;

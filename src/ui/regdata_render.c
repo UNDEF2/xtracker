@@ -7,34 +7,15 @@
 #include "common.h"
 #include <string.h>
 
-const int16_t kbase_x = XT_UI_REGDATA_X;
-const int16_t kbase_y = XT_UI_REGDATA_Y;
-const int16_t kbase_w = XT_UI_AREA_W - kbase_x - XT_UI_MARGIN_SIDE;
-const int16_t kbase_h = XT_UI_AREA_H - kbase_y - 8;  // Space for the channel indicators
+static const int16_t kbase_x = XT_UI_REGDATA_X;
+static const int16_t kbase_y = XT_UI_REGDATA_Y;
+static const int16_t kbase_w = XT_UI_AREA_W - kbase_x - XT_UI_MARGIN_SIDE;
+static const int16_t kbase_h = XT_UI_AREA_H - kbase_y - 8;  // Space for the channel indicators
 
 void xt_regdata_renderer_init(XtRegdataRenderer *a)
 {
 	memset(a, 0, sizeof(*a));
 	a->full_repaint = true;
-}
-
-static inline void draw_hex1(uint16_t x, uint16_t y, uint8_t val)
-{
-	cgbox(XT_UI_PLANE, XT_PAL_BACK, x, y,
-	      6, 7);
-	char buffer[2] = {0};
-	buffer[0] = 0x10 | (val & 0x0F);
-	cgprint(XT_UI_PLANE, XT_PAL_MAIN, buffer, x, y);
-}
-
-static inline void draw_hex2(uint16_t x, uint16_t y, uint8_t val)
-{
-	cgbox(XT_UI_PLANE, XT_PAL_BACK, x, y,
-	      12, 7);
-	char buffer[3] = {0};
-	buffer[0] = 0x10 | ((val & 0xF0) >> 4);
-	buffer[1] = 0x10 | (val & 0x0F);
-	cgprint(XT_UI_PLANE, XT_PAL_MAIN, buffer, x, y);
 }
 
 static inline void opm_update_col_sub(uint32_t *cur, const uint32_t *new,
@@ -46,7 +27,7 @@ static inline void opm_update_col_sub(uint32_t *cur, const uint32_t *new,
 	const uint8_t *data_u8 = (const uint8_t *)new;
 	for (uint16_t i = 0; i < XB_OPM_OP_COUNT; i++)
 	{
-		draw_hex2(x, y, data_u8[i]);
+		cgprint_hex2(XT_UI_PLANE, XT_PAL_MAIN, x, y, data_u8[i]);
 		y += XT_UI_ROW_SPACING;
 	}
 }
@@ -57,16 +38,16 @@ static void opm_reg_paint(XtOpmPatch *cur, const XtOpmPatch *new, bool force)
 	if (force || cur->fl != new->fl)
 	{
 		cur->fl = new->fl;
-		draw_hex1(kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
-		          kbase_y + XT_UI_REGDATA_FL_OFFS_Y,
-		          new->fl);
+		cgprint_hex1(XT_UI_PLANE, XT_PAL_MAIN, kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
+		             kbase_y + XT_UI_REGDATA_FL_OFFS_Y,
+		             new->fl);
 	}
 	if (force || cur->con != new->con)
 	{
 		cur->con = new->con;
-		draw_hex1(kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
-		          kbase_y + XT_UI_REGDATA_CON_OFFS_Y,
-		          new->con);
+		cgprint_hex1(XT_UI_PLANE, XT_PAL_MAIN, kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
+		             kbase_y + XT_UI_REGDATA_CON_OFFS_Y,
+		             new->con);
 
 		static const uint16_t con_tileidx[] =
 		{
@@ -82,94 +63,43 @@ static void opm_reg_paint(XtOpmPatch *cur, const XtOpmPatch *new, bool force)
 	if (force || cur->pms != new->pms)
 	{
 		cur->pms = new->pms;
-		draw_hex1(kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
-		          kbase_y + XT_UI_REGDATA_PMS_OFFS_Y,
-		          new->pms);
+		cgprint_hex1(XT_UI_PLANE, XT_PAL_MAIN, kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
+		             kbase_y + XT_UI_REGDATA_PMS_OFFS_Y,
+		             new->pms);
 	}
 	if (force || cur->ams != new->ams)
 	{
 		cur->ams = new->ams;
-		draw_hex1(kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
-		          kbase_y + XT_UI_REGDATA_AMS_OFFS_Y,
-		          new->ams);
+		cgprint_hex1(XT_UI_PLANE, XT_PAL_MAIN, kbase_x + XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X,
+		             kbase_y + XT_UI_REGDATA_AMS_OFFS_Y,
+		             new->ams);
 	}
 
 	// The table, updated one column at a time to speed up comparisons
 	_Static_assert(sizeof(uint32_t) == XB_OPM_OP_COUNT);
-	const uint32_t *new_dt1_as_u32 = (const uint32_t *)&new->dt1[0];
-	const uint32_t *new_mul_as_u32 = (const uint32_t *)&new->mul[0];
-	const uint32_t *new_tl_as_u32 = (const uint32_t *)&new->tl[0];
-	const uint32_t *new_ks_as_u32 = (const uint32_t *)&new->ks[0];
-	const uint32_t *new_ar_as_u32 = (const uint32_t *)&new->ar[0];
-	const uint32_t *new_ame_as_u32 = (const uint32_t *)&new->ame[0];
-	const uint32_t *new_d1r_as_u32 = (const uint32_t *)&new->d1r[0];
-	const uint32_t *new_dt2_as_u32 = (const uint32_t *)&new->dt2[0];
-	const uint32_t *new_d2r_as_u32 = (const uint32_t *)&new->d2r[0];
-	const uint32_t *new_d1l_as_u32 = (const uint32_t *)&new->d1l[0];
-	const uint32_t *new_rr_as_u32 = (const uint32_t *)&new->rr[0];
-
-	uint32_t *cur_dt1_as_u32 = (uint32_t *)&cur->dt1[0];
-	uint32_t *cur_mul_as_u32 = (uint32_t *)&cur->mul[0];
-	uint32_t *cur_tl_as_u32 = (uint32_t *)&cur->tl[0];
-	uint32_t *cur_ks_as_u32 = (uint32_t *)&cur->ks[0];
-	uint32_t *cur_ar_as_u32 = (uint32_t *)&cur->ar[0];
-	uint32_t *cur_ame_as_u32 = (uint32_t *)&cur->ame[0];
-	uint32_t *cur_d1r_as_u32 = (uint32_t *)&cur->d1r[0];
-	uint32_t *cur_dt2_as_u32 = (uint32_t *)&cur->dt2[0];
-	uint32_t *cur_d2r_as_u32 = (uint32_t *)&cur->d2r[0];
-	uint32_t *cur_d1l_as_u32 = (uint32_t *)&cur->d1l[0];
-	uint32_t *cur_rr_as_u32 = (uint32_t *)&cur->rr[0];
-
 	uint16_t left_x = kbase_x + XT_UI_REGDATA_TABLE_OFFS_X + 11;
-	opm_update_col_sub(cur_ar_as_u32, new_ar_as_u32, left_x, force);
+	opm_update_col_sub(&cur->ar_u32, &new->ar_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_d1r_as_u32, new_d1r_as_u32, left_x, force);
+	opm_update_col_sub(&cur->d1r_u32, &new->d1r_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_d2r_as_u32, new_d2r_as_u32, left_x, force);
+	opm_update_col_sub(&cur->d2r_u32, &new->d2r_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_rr_as_u32, new_rr_as_u32, left_x, force);
+	opm_update_col_sub(&cur->rr_u32, &new->rr_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_d1l_as_u32, new_d1l_as_u32, left_x, force);
+	opm_update_col_sub(&cur->d1l_u32, &new->d1l_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_tl_as_u32, new_tl_as_u32, left_x, force);
+	opm_update_col_sub(&cur->tl_u32, &new->tl_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_ks_as_u32, new_ks_as_u32, left_x, force);
+	opm_update_col_sub(&cur->ks_u32, &new->ks_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_mul_as_u32, new_mul_as_u32, left_x, force);
+	opm_update_col_sub(&cur->mul_u32, &new->mul_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_dt1_as_u32, new_dt1_as_u32, left_x, force);
+	opm_update_col_sub(&cur->dt1_u32, &new->dt1_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_dt2_as_u32, new_dt2_as_u32, left_x, force);
+	opm_update_col_sub(&cur->dt2_u32, &new->dt2_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-	opm_update_col_sub(cur_ame_as_u32, new_ame_as_u32, left_x, force);
+	opm_update_col_sub(&cur->ame_u32, &new->ame_u32, left_x, force);
 	left_x += XT_UI_COL_SPACING;
-/*
-	// right side data
-	#define XT_UI_REGDATA_TABEL_OFFS_X (XT_UI_REGDATA_LEFTDAT_OFFS_X + 68)
-	#define XT_UI_REGDATA_TABLE_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y)
-
-
-#define XT_UI_REGDATA_LEFTDAT_OFFS_X (XT_UI_REGDATA_TABLE_OFFS_X),
-#define XT_UI_REGDATA_LEFTDAT_NUM_OFFS_X (XT_UI_REGDATA_LEFTDAT_OFFS_X + 20)
-
-#define XT_UI_REGDATA_TYPE_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y)
-#define XT_UI_REGDATA_CON_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y + (1*8))
-#define XT_UI_REGDATA_FL_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y + (2*8))
-#define XT_UI_REGDATA_PMS_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y + (3*8))
-#define XT_UI_REGDATA_AMS_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y + (4*8))
- 
-
-// con diagram
-#define XT_UI_REGDATA_CONCHART_OFFS_X (XT_UI_REGDATA_LEFTDAT_OFFS_X + 28)
-#define XT_UI_REGDATA_CONCHART_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y + 16)
-
-// op labels
-#define XT_UI_REGDATA_OPLABELS_OFFS_X (XT_UI_REGDATA_LEFTDAT_OFFS_X + 58)
-#define XT_UI_REGDATA_CONCHART_OFFS_Y (XT_UI_REGDATA_TABLE_OFFS_Y)
- 
- */
-
-
 }
 
 static void opm_backing_paint(void)
@@ -219,21 +149,20 @@ void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins)
 		}
 
 		// As part of a full repaint, the instrument data will be redrawn as well.
-		a->full_repaint = false;
 		a->data_repaint = true;
-
-	
+		a->full_repaint = false;
 	}
 
 	// Repaint any data that does not match what is current.
 	switch (ins->type)
 	{
 		case XT_CHANNEL_OPM:
-			opm_reg_paint(&a->data.opm, &ins->opm, false);
+			opm_reg_paint(&a->data.opm, &ins->opm, a->data_repaint);
 			break;
 		case XT_CHANNEL_ADPCM:
 			// TODO: ADPCM painter
 			break;
+		a->data_repaint = false;
 	}
 }
 

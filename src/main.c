@@ -24,6 +24,7 @@
 #include "ui/cursor.h"
 #include "ui/chanlabels.h"
 #include "ui/fnlabels.h"
+#include "ui/instrument_list_render.h"
 #include "ui/metrics.h"
 #include "ui/regdata_render.h"
 #include "ui/track_render.h"
@@ -41,6 +42,7 @@ static XtRegdataRenderer s_regdata_renderer;
 static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
 static XtArrangeEditor s_arrange_editor;
+static XtInstrumentListRenderer s_instrument_list_renderer;
 
 static const char *s_filename;
 
@@ -115,14 +117,14 @@ static void interrupts_shutdown(void)
 
 void set_demo_instruments(void)
 {
+	memset(s_track.instruments, 0, sizeof(s_track.instruments));
 	XtInstrument *ins = &s_track.instruments[0];
 
 	// Instrument $00
-	memset(ins, 0, sizeof(*ins));
 	ins->type = XT_CHANNEL_OPM;
-	ins->valid = true;
 	ins->opm.fl = 0;
 	ins->opm.con = 3;
+	snprintf(ins->name, sizeof(ins->name), "Bass 01");
 
 	ins->opm.mul[0] = 2;
 	ins->opm.tl[0] = 127;
@@ -156,10 +158,11 @@ void set_demo_instruments(void)
 	// instrument $01 - filled crap data
 	ins++;
 	uint8_t val = 0;
-	ins->opm.fl = val++;
 	ins->opm.con = val++;
+	ins->opm.fl = val++;
 	ins->opm.pms = val++;
 	ins->opm.ams = val++;
+	snprintf(ins->name, sizeof(ins->name), "Lead 02");
 
 	for (uint16_t i = 0; i < XB_OPM_OP_COUNT; i++)
 	{
@@ -175,6 +178,8 @@ void set_demo_instruments(void)
 		ins->opm.dt2[i] = val++;
 		ins->opm.ame[i] = val++;
 	}
+
+	s_track.num_instruments = 2;
 }
 
 //
@@ -348,6 +353,8 @@ static void editor_render(XtUiFocus focus)
 			xt_phrase_editor_update_renderer(&s_phrase_editor, &s_track_renderer);
 			xt_arrange_renderer_tick(&s_arrange_renderer, &s_track,
 			                         s_arrange_editor.frame, s_arrange_editor.column);
+			xt_instrument_list_renderer_tick(&s_instrument_list_renderer, &s_track,
+			                                 s_phrase_editor.instrument);
 			break;
 		case XT_UI_FOCUS_ARRANGE_EDIT:
 			xt_arrange_renderer_tick(&s_arrange_renderer, &s_track,
@@ -356,8 +363,11 @@ static void editor_render(XtUiFocus focus)
 		case XT_UI_FOCUS_INSTRUMENT_SEL:
 		case XT_UI_FOCUS_INSTRUMENT_EDIT:
 			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track.instruments[s_phrase_editor.instrument]);
+			xt_instrument_list_renderer_tick(&s_instrument_list_renderer, &s_track,
+			                                 s_phrase_editor.instrument);
 			break;
 	}
+
 	xt_cursor_update();
 	update_scroll();
 
@@ -394,10 +404,6 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 		switch (key_event.name)
 		{
 			default:
-				break;
-			case XB_KEY_CR:
-				if (key_event.modifiers & XB_KEY_MOD_IS_REPEAT) break;
-				toggle_playback(key_event);
 				break;
 
 			case XB_KEY_HELP:
@@ -463,6 +469,11 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					s_arrange_editor.frame = s_player_frame;
 					xb_set_ipl(old_ipl);
 				}
+				if (key_event.name == XB_KEY_CR &&
+				    !(key_event.modifiers & XB_KEY_MOD_IS_REPEAT))
+				{
+					toggle_playback(key_event);
+				}
 				break;
 
 			case XT_UI_FOCUS_ARRANGE_EDIT:
@@ -496,6 +507,37 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					focus_on_pattern();
 					focus = XT_UI_FOCUS_PATTERN;
 				}
+
+				if (!(key_event.modifiers & XB_KEY_MOD_KEY_UP))
+				{
+					switch (key_event.name)
+					{
+						default:
+							break;
+						case XB_KEY_DOWN:
+							s_phrase_editor.instrument++;
+							if (s_phrase_editor.instrument >= s_track.num_instruments)
+							{
+								s_phrase_editor.instrument = s_track.num_instruments - 1;
+							}
+							break;
+
+						case XB_KEY_UP:
+							if (s_phrase_editor.instrument > 0) s_phrase_editor.instrument--;
+							break;
+
+						case XB_KEY_ESC:
+							focus_on_pattern();
+							focus = XT_UI_FOCUS_PATTERN;
+							break;
+
+						case XB_KEY_CR:
+							focus = XT_UI_FOCUS_INSTRUMENT_EDIT;
+							break;
+					}
+
+				}
+
 				break;
 
 			case XT_UI_FOCUS_INSTRUMENT_EDIT:
@@ -531,6 +573,7 @@ int main(int argc, char **argv)
 	xt_arrange_editor_init(&s_arrange_editor, &s_arrange_renderer);
 	xt_phrase_editor_init(&s_phrase_editor, &s_track);
 	xt_regdata_renderer_init(&s_regdata_renderer);
+	xt_instrument_list_renderer_init(&s_instrument_list_renderer);
 
 	ui_backing_draw();
 
