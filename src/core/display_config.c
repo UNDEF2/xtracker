@@ -1,6 +1,6 @@
 #include "core/display_config.h"
 
-#include "common.h"
+#include "core/macro.h"
 #include "xbase/pcg.h"
 #include "xbase/crtc.h"
 #include "xbase/util/display.h"

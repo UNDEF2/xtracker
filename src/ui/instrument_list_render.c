@@ -4,7 +4,7 @@
 #include "xt/instrument.h"
 #include "util/cgprint.h"
 #include "palette.h"
-#include "common.h"
+#include "core/macro.h"
 #include <string.h>
 
 static const int16_t kbase_x = XT_UI_INSTRUMENT_LIST_X;

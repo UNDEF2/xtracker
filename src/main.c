@@ -13,12 +13,11 @@
 #include "xbase/vidcon.h"
 #include "xbase/mfp.h"
 
-#include "common.h"
-#include "phrase_editor.h"
-#include "arrange_editor.h"
+#include "core/macro.h"
+#include "edit/phrase_editor.h"
+#include "edit/arrange_editor.h"
 #include "core/display_config.h"
 #include "util/cgprint.h"
-#include "util/txprint.h"
 #include "ui/arrange_render.h"
 #include "ui/backing.h"
 #include "ui/cursor.h"
@@ -630,7 +629,6 @@ int main(int argc, char **argv)
 	_dos_super(0);
 
 	display_config_init();
-	txprint_init();
 	xt_palette_init();
 	xb_keys_init(NULL);
 
@@ -638,7 +636,6 @@ int main(int argc, char **argv)
 	if (!interrupts_init()) goto done;
 
 	cgprint_load("RES\\CGDAT.BIN");
-	txprintf(0, 16, 0, "");
 
 	xt_player_init(&s_player, &s_track);
 	xt_cursor_init();

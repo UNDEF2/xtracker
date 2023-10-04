@@ -1,8 +1,8 @@
-#include "arrange_editor.h"
+#include "edit/arrange_editor.h"
 #include <string.h>
 #include "ui/fnlabels.h"
 #include "ui/metrics.h"
-#include "common.h"
+#include "core/macro.h"
 
 void xt_arrange_editor_init(XtArrangeEditor *a, XtArrangeRenderer *r)
 {

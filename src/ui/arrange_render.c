@@ -3,7 +3,7 @@
 #include "ui/section_title.h"
 #include "util/cgprint.h"
 #include "palette.h"
-#include "common.h"
+#include "core/macro.h"
 #include <string.h>
 
 // Set up the XtArrange struct for its first render and further use.

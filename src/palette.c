@@ -1,6 +1,6 @@
 #include "palette.h"
 
-#include "common.h"
+#include "core/macro.h"
 #include <stdint.h>
 #include "xbase/vidcon.h"
 

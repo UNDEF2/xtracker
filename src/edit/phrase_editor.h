@@ -1,5 +1,5 @@
-#ifndef PHRASE_EDITOR_H
-#define PHRASE_EDITOR_H
+#ifndef EDIT_PHRASE_EDITOR_H
+#define EDIT_PHRASE_EDITOR_H
 
 #include "xt/track.h"
 #include "ui/track_render.h"
@@ -47,9 +47,6 @@ typedef struct XtPhraseEditor
 	uint16_t step_size;  // Rows to go down after having entered a note.
 
 	bool channel_dirty[XT_TOTAL_CHANNEL_COUNT];
-	// TODO: Need to keep a mapping of which channels should be painted where
-	//       in order to support greater scrolling.
-	// TODO: Clipboard buffer, and all that...
 
 	struct
 	{
@@ -93,4 +90,4 @@ int16_t xt_phrase_editor_get_cam_y(const XtPhraseEditor *p);
 
 void xt_phrase_editor_set_fnlabels(bool ctrl);
 
-#endif  // PHRASE_EDITOR_H
+#endif  // EDIT_PHRASE_EDITOR_H

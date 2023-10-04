@@ -1,6 +1,6 @@
 #include "xt/instrument.h"
 
-#include "common.h"
+#include "core/macro.h"
 
 #include <string.h>
 

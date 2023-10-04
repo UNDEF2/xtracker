@@ -1,6 +1,6 @@
 #include "util/cgprint.h"
 #include <stdio.h>
-#include "common.h"
+#include "core/macro.h"
 #include "xbase/crtc.h"
 #include "xbase/memmap.h"
 

@@ -1,5 +1,5 @@
-#ifndef ARRANGE_EDITOR_H
-#define ARRANGE_EDITOR_H
+#ifndef EDIT_ARRANGE_EDITOR_H
+#define EDIT_ARRANGE_EDITOR_H
 
 #include <stdint.h>
 #include "xbase/keys.h"
@@ -24,4 +24,4 @@ void xt_arrange_editor_on_key(XtArrangeEditor *a, XtTrack *t, XtTrackRenderer *t
 void xt_arrange_editor_set_fnlabels(void);
 
 
-#endif  // ARRANGE_EDITOR_H
+#endif  // EDIT_ARRANGE_EDITOR_H

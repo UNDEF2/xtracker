@@ -2,7 +2,7 @@
 #define XT_PLAYER_H
 
 #include <stdint.h>
-#include "common.h"
+#include "core/macro.h"
 #include "xbase/opm.h"
 #include "xt/track.h"
 #include "xt/mod.h"

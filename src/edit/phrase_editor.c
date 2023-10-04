@@ -1,7 +1,7 @@
-#include "phrase_editor.h"
+#include "edit/phrase_editor.h"
 #include "xbase/keys.h"
 #include "ui/cursor.h"
-#include "common.h"
+#include "core/macro.h"
 
 #include "ui/fnlabels.h"
 #include "util/transpose.h"

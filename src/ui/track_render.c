@@ -1,6 +1,6 @@
 #include "ui/track_render.h"
 
-#include "common.h"
+#include "core/macro.h"
 #include <string.h>
 #include <stdio.h>
 

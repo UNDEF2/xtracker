@@ -1,7 +1,7 @@
 #include "xt/track.h"
 #include <dos.h>
 #include <string.h>
-#include "common.h"
+#include "core/macro.h"
 
 XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame)
 {
