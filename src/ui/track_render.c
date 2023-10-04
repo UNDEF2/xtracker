@@ -63,6 +63,14 @@ static void draw_empty_column(uint16_t x, uint16_t height,
 		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+		*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 
 		nt0 += (nt_width_cells - cell_width_cells);
 	}
@@ -137,6 +145,21 @@ static void draw_opm_column(const XtPhrase *phrase, uint16_t x, uint16_t height,
 			const uint8_t instr_low = 0x20 + (cell->inst & 0x0F);
 			*nt0++ = XB_PCG_ATTR(0, 0, pal, instr_high);
 			*nt0++ = XB_PCG_ATTR(0, 0, pal, instr_low);
+		}
+
+		// Volume.
+		if (cell->vol >= 0x80)
+		{
+			const uint8_t vol_norm = cell->vol & 0x7F;
+			const uint8_t vol_high = 0x90 + (vol_norm >> 4);
+			const uint8_t vol_low = 0x90 + (vol_norm & 0x0F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, vol_high);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, vol_low);
+		}
+		else
+		{
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
+			*nt0++ = XB_PCG_ATTR(0, 0, pal, 0x7F);
 		}
 
 		// Commands and Params.
@@ -245,8 +268,8 @@ void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame)
 
 				case XT_CHANNEL_OPM:
 					draw_opm_column(phrase, draw_x, len, hl[0], hl[1]);
-
 					break;
+
 				case XT_CHANNEL_ADPCM:
 					// TODO
 					draw_empty_column(draw_x, len, hl[0], hl[1]);

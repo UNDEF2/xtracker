@@ -167,12 +167,28 @@ static inline uint16_t get_x_for_column(uint16_t column,
 			return base + 3 * XT_RENDER_CELL_W_PIXELS;
 		case CURSOR_SUBPOS_INSTRUMENT_LOW:
 			return base + 4 * XT_RENDER_CELL_W_PIXELS;
-		case CURSOR_SUBPOS_CMD1:
+		case CURSOR_SUBPOS_VOL_HIGH:
 			return base + 5 * XT_RENDER_CELL_W_PIXELS;
-		case CURSOR_SUBPOS_ARG1_HIGH:
+		case CURSOR_SUBPOS_VOL_LOW:
 			return base + 6 * XT_RENDER_CELL_W_PIXELS;
-		case CURSOR_SUBPOS_ARG1_LOW:
+		case CURSOR_SUBPOS_CMD1:
 			return base + 7 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG1_HIGH:
+			return base + 8 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG1_LOW:
+			return base + 9 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_CMD2:
+			return base + 10 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG2_HIGH:
+			return base + 11 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG2_LOW:
+			return base + 12 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_CMD3:
+			return base + 13 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG3_HIGH:
+			return base + 14 * XT_RENDER_CELL_W_PIXELS;
+		case CURSOR_SUBPOS_ARG3_LOW:
+			return base + 15 * XT_RENDER_CELL_W_PIXELS;
 	}
 }
 
@@ -211,6 +227,13 @@ static void draw_normal_cursor(const XtPhraseEditor *p)
 			draw_x -= 8;
 			xt_cursor_set(draw_x, draw_y, 2, 1, 1, line_hl);
 			break;
+		case CURSOR_SUBPOS_VOL_HIGH:
+			xt_cursor_set(draw_x, draw_y, 2, 1, 0, line_hl);
+			break;
+		case CURSOR_SUBPOS_VOL_LOW:
+			draw_x -= 8;
+			xt_cursor_set(draw_x, draw_y, 2, 1, 1, line_hl);
+			break;
 		case CURSOR_SUBPOS_CMD1:
 			xt_cursor_set(draw_x, draw_y, 3, 1, 0, line_hl);
 			break;
@@ -222,6 +245,29 @@ static void draw_normal_cursor(const XtPhraseEditor *p)
 			draw_x -= 16;
 			xt_cursor_set(draw_x, draw_y, 3, 1, 2, line_hl);
 			break;
+		case CURSOR_SUBPOS_CMD2:
+			xt_cursor_set(draw_x, draw_y, 3, 1, 0, line_hl);
+			break;
+		case CURSOR_SUBPOS_ARG2_HIGH:
+			draw_x -= 8;
+			xt_cursor_set(draw_x, draw_y, 3, 1, 1, line_hl);
+			break;
+		case CURSOR_SUBPOS_ARG2_LOW:
+			draw_x -= 16;
+			xt_cursor_set(draw_x, draw_y, 3, 1, 2, line_hl);
+			break;
+		case CURSOR_SUBPOS_CMD3:
+			xt_cursor_set(draw_x, draw_y, 3, 1, 0, line_hl);
+			break;
+		case CURSOR_SUBPOS_ARG3_HIGH:
+			draw_x -= 8;
+			xt_cursor_set(draw_x, draw_y, 3, 1, 1, line_hl);
+			break;
+		case CURSOR_SUBPOS_ARG3_LOW:
+			draw_x -= 16;
+			xt_cursor_set(draw_x, draw_y, 3, 1, 2, line_hl);
+			break;
+
 	}
 }
 
@@ -344,7 +390,7 @@ static inline bool handle_note_entry(XtPhraseEditor *p, XtTrack *t,
 typedef struct XtKeyNumberPairing
 {
 	XBKey key;
-	uint8_t value;
+	int8_t value;
 } XtKeyNumberPairing;
 
 static const XtKeyNumberPairing number_lookup[] =
@@ -375,41 +421,78 @@ static const XtKeyNumberPairing number_lookup[] =
 	{XB_KEY_NUMPAD_7, 7},
 	{XB_KEY_NUMPAD_8, 8},
 	{XB_KEY_NUMPAD_9, 9},
+	{XB_KEY_DEL, -1},
 };
 
 static inline bool handle_number_entry(XtPhraseEditor *p, XtTrack *t,
-                                           XBKeyEvent e)
+                                       XBKeyEvent e)
 {
 	for (uint16_t i = 0; i < ARRAYSIZE(number_lookup); i++)
 	{
 		const XtKeyNumberPairing *m = &number_lookup[i];
-		if (e.name == m->key)
+		if (e.name != m->key) continue;
+		XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
+		XtCell *cell = &phrase->cells[p->row];
+		switch (p->sub_pos)
 		{
-			XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
-			XtCell *cell = &phrase->cells[p->row];
-			switch (p->sub_pos)
-			{
-				default:
-					return false;
-				case CURSOR_SUBPOS_INSTRUMENT_HIGH:
-					cell->inst &= 0x0F;
-					cell->inst |= m->value << 4;
-					return true;
-				case CURSOR_SUBPOS_INSTRUMENT_LOW:
-					cell->inst &= 0xF0;
-					cell->inst |= m->value;
-					return true;
-				// TODO: Make this automagically handle a variable number of
-				// command columns.
-				case CURSOR_SUBPOS_ARG1_HIGH:
-					cell->cmd[0].arg &= 0x0F;
-					cell->cmd[0].arg |= m->value << 4;
-					return true;
-				case CURSOR_SUBPOS_ARG1_LOW:
-					cell->cmd[0].arg &= 0xF0;
-					cell->cmd[0].arg |= m->value;
-					return true;
-			}
+			default:
+				return false;
+			case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+				cell->inst &= 0x0F;
+				if (m->value >= 0) cell->inst |= m->value << 4;
+				return true;
+			case CURSOR_SUBPOS_INSTRUMENT_LOW:
+				cell->inst &= 0xF0;
+				if (m->value >= 0) cell->inst |= m->value;
+				return true;
+			case CURSOR_SUBPOS_VOL_HIGH:
+				if (m->value < 0)
+				{
+					cell->vol = 0;
+				}
+				else
+				{
+					cell->vol &= 0x0F;
+					cell->vol |= 0x80;
+					cell->vol |= m->value << 4;
+				}
+				return true;
+			case CURSOR_SUBPOS_VOL_LOW:
+				if (m->value < 0)
+				{
+					cell->vol = 0;
+				}
+				else
+				{
+					cell->vol &= 0xF0;
+					cell->vol |= 0x80;
+					cell->vol |= m->value;
+				}
+				return true;
+			case CURSOR_SUBPOS_ARG1_HIGH:
+				cell->cmd[0].arg &= 0x0F;
+				if (m->value >= 0) cell->cmd[0].arg |= m->value << 4;
+				return true;
+			case CURSOR_SUBPOS_ARG1_LOW:
+				cell->cmd[0].arg &= 0xF0;
+				if (m->value >= 0) cell->cmd[0].arg |= m->value;
+				return true;
+			case CURSOR_SUBPOS_ARG2_HIGH:
+				cell->cmd[1].arg &= 0x0F;
+				if (m->value >= 0) cell->cmd[1].arg |= m->value << 4;
+				return true;
+			case CURSOR_SUBPOS_ARG2_LOW:
+				cell->cmd[1].arg &= 0xF0;
+				if (m->value >= 0) cell->cmd[1].arg |= m->value;
+				return true;
+			case CURSOR_SUBPOS_ARG3_HIGH:
+				cell->cmd[2].arg &= 0x0F;
+				if (m->value >= 0) cell->cmd[2].arg |= m->value << 4;
+				return true;
+			case CURSOR_SUBPOS_ARG3_LOW:
+				cell->cmd[2].arg &= 0xF0;
+				if (m->value >= 0) cell->cmd[2].arg |= m->value;
+				return true;
 		}
 	}
 	return false;
@@ -437,8 +520,6 @@ static const XtKeyCommandPairing command_lookup[] =
 	{XB_KEY_5, XT_CMD_MULT_OP1},
 	{XB_KEY_6, XT_CMD_MULT_OP2},
 	{XB_KEY_7, XT_CMD_MULT_OP3},
-
-	{XB_KEY_A, XT_CMD_AMPLITUDE},
 
 	{XB_KEY_B, XT_CMD_BREAK},
 	{XB_KEY_C, XT_CMD_HALT},
@@ -479,6 +560,12 @@ static inline bool handle_command_entry(XtPhraseEditor *p, XtTrack *t,
 					return false;
 				case CURSOR_SUBPOS_CMD1:
 					cell->cmd[0].cmd = m->value;
+					return true;
+				case CURSOR_SUBPOS_CMD2:
+					cell->cmd[1].cmd = m->value;
+					return true;
+				case CURSOR_SUBPOS_CMD3:
+					cell->cmd[2].cmd = m->value;
 					return true;
 			}
 		}
@@ -641,6 +728,12 @@ static void select_delete(XtPhraseEditor *p, XtTrack *t)
 					case CURSOR_SUBPOS_INSTRUMENT_LOW:
 						dest_cell->inst &= 0xF0;
 						break;
+					case CURSOR_SUBPOS_VOL_HIGH:
+						dest_cell->vol &= 0x0F;
+						break;
+					case CURSOR_SUBPOS_VOL_LOW:
+						dest_cell->vol &= 0xF0;
+						break;
 					case CURSOR_SUBPOS_CMD1:
 						dest_cell->cmd[0].cmd = XT_CMD_NONE;
 						break;
@@ -649,6 +742,24 @@ static void select_delete(XtPhraseEditor *p, XtTrack *t)
 						break;
 					case CURSOR_SUBPOS_ARG1_LOW:
 						dest_cell->cmd[0].arg &= 0xF0;
+						break;
+					case CURSOR_SUBPOS_CMD2:
+						dest_cell->cmd[1].cmd = XT_CMD_NONE;
+						break;
+					case CURSOR_SUBPOS_ARG2_HIGH:
+						dest_cell->cmd[1].arg &= 0x0F;
+						break;
+					case CURSOR_SUBPOS_ARG2_LOW:
+						dest_cell->cmd[1].arg &= 0xF0;
+						break;
+					case CURSOR_SUBPOS_CMD3:
+						dest_cell->cmd[2].cmd = XT_CMD_NONE;
+						break;
+					case CURSOR_SUBPOS_ARG3_HIGH:
+						dest_cell->cmd[2].arg &= 0x0F;
+						break;
+					case CURSOR_SUBPOS_ARG3_LOW:
+						dest_cell->cmd[2].arg &= 0xF0;
 						break;
 					default:
 						break;
@@ -701,6 +812,14 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 						dest_cell->inst &= 0xF0;
 						dest_cell->inst |= src_cell->inst & 0x0F;
 						break;
+					case CURSOR_SUBPOS_VOL_HIGH:
+						dest_cell->vol &= 0x0F;
+						dest_cell->vol |= src_cell->vol & 0xF0;
+						break;
+					case CURSOR_SUBPOS_VOL_LOW:
+						dest_cell->vol &= 0xF0;
+						dest_cell->vol |= src_cell->vol & 0x0F;
+						break;
 					case CURSOR_SUBPOS_CMD1:
 						dest_cell->cmd[0].cmd = src_cell->cmd[0].cmd;
 						break;
@@ -711,6 +830,28 @@ static void paste(XtPhraseEditor *p, XtTrack *t)
 					case CURSOR_SUBPOS_ARG1_LOW:
 						dest_cell->cmd[0].arg &= 0xF0;
 						dest_cell->cmd[0].arg |= src_cell->cmd[0].arg & 0x0F;
+						break;
+					case CURSOR_SUBPOS_CMD2:
+						dest_cell->cmd[1].cmd = src_cell->cmd[1].cmd;
+						break;
+					case CURSOR_SUBPOS_ARG2_HIGH:
+						dest_cell->cmd[1].arg &= 0x0F;
+						dest_cell->cmd[1].arg |= src_cell->cmd[1].arg & 0xF0;
+						break;
+					case CURSOR_SUBPOS_ARG2_LOW:
+						dest_cell->cmd[1].arg &= 0xF0;
+						dest_cell->cmd[1].arg |= src_cell->cmd[1].arg & 0x0F;
+						break;
+					case CURSOR_SUBPOS_CMD3:
+						dest_cell->cmd[2].cmd = src_cell->cmd[2].cmd;
+						break;
+					case CURSOR_SUBPOS_ARG3_HIGH:
+						dest_cell->cmd[2].arg &= 0x0F;
+						dest_cell->cmd[2].arg |= src_cell->cmd[2].arg & 0xF0;
+						break;
+					case CURSOR_SUBPOS_ARG3_LOW:
+						dest_cell->cmd[2].arg &= 0xF0;
+						dest_cell->cmd[2].arg |= src_cell->cmd[2].arg & 0x0F;
 						break;
 					default:
 						break;
@@ -977,7 +1118,10 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 				}
 				break;
 			case CURSOR_SUBPOS_INSTRUMENT_HIGH:
+			case CURSOR_SUBPOS_VOL_HIGH:
 			case CURSOR_SUBPOS_ARG1_HIGH:
+			case CURSOR_SUBPOS_ARG2_HIGH:
+			case CURSOR_SUBPOS_ARG3_HIGH:
 				if (handle_number_entry(p, t, e))
 				{
 					p->channel_dirty[p->column] = true;
@@ -985,7 +1129,10 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 				}
 				break;
 			case CURSOR_SUBPOS_INSTRUMENT_LOW:
+			case CURSOR_SUBPOS_VOL_LOW:
 			case CURSOR_SUBPOS_ARG1_LOW:
+			case CURSOR_SUBPOS_ARG2_LOW:
+			case CURSOR_SUBPOS_ARG3_LOW:
 				if (handle_number_entry(p, t, e))
 				{
 					p->channel_dirty[p->column] = true;
@@ -994,6 +1141,8 @@ static void normal_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 				}
 				break;
 			case CURSOR_SUBPOS_CMD1:
+			case CURSOR_SUBPOS_CMD2:
+			case CURSOR_SUBPOS_CMD3:
 				if (handle_command_entry(p, t, e))
 				{
 					p->channel_dirty[p->column] = true;
@@ -1049,7 +1198,7 @@ static void selecting_on_key(XtPhraseEditor *p, XtTrack *t, XBKeyEvent e)
 				{
 					p->sub_pos = CURSOR_SUBPOS_NOTE;
 					p->row = 0;
-					p->select.from_sub_pos = CURSOR_SUBPOS_ARG1_LOW;
+					p->select.from_sub_pos = CURSOR_SUBPOS_ARG3_LOW;
 					p->select.from_row = XT_PHRASE_MAX_ROWS - 1;
 				}
 				else if (p->select.ctrl_a_step == 1)

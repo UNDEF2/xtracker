@@ -124,8 +124,8 @@ static void opm_backing_paint(void)
 	for (uint16_t i = 0; i < ARRAYSIZE(kop_lut); i++)
 	{
 		cgprint_hex1(XT_UI_PLANE, XT_PAL_INACTIVE,
-		             kbase_x + XT_UI_REGDATA_TABLE_OFFS_X - 6,
-		             kbase_y + (XT_UI_ROW_SPACING * i) + XT_UI_REGDATA_TABLE_OFFS_Y,
+		             kbase_x + XT_UI_REGDATA_TABLE_OFFS_X,
+		             kbase_y + (XT_UI_ROW_SPACING * (1 + i)) + XT_UI_REGDATA_TABLE_OFFS_Y,
 		             i);
 		
 	}

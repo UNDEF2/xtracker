@@ -31,7 +31,7 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 	const int16_t kbase_h = XT_UI_AREA_H - kbase_y - 8;  // Space for the channel indicators
 	if (!a->backing_drawn)
 	{
-		ui_section_title_draw("Arrangement Title", kbase_x, kbase_y, kbase_w, kbase_h);
+		ui_section_title_draw("Arrangement Order", kbase_x, kbase_y, kbase_w, kbase_h);
 		a->backing_drawn = true;
 	}
 

@@ -117,7 +117,7 @@ static void interrupts_shutdown(void)
 
 void set_demo_instruments(void)
 {
-	memset(s_track.instruments, 0, sizeof(s_track.instruments));
+	memset(s_track.instruments, 0, sizeof(s_track.instruments[0]) * 5);
 	XtInstrument *ins = &s_track.instruments[0];
 
 	// Instrument $00

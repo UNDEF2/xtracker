@@ -15,7 +15,7 @@ static const uint16_t kpcg_palette[] =
 	XB_PAL_RGB8(0x30, 0xB0, 0x60),  // Instrument column
 	XB_PAL_RGB8(0x60, 0x10, 0xB0),  // Effects command
 	XB_PAL_RGB8(0x20, 0x88, 0xB0),  // Effects param
-	0, // Unused
+	XB_PAL_RGB8(0xE0, 0xB0, 0x04),  // Volume column
 	XB_PAL_RGB8(0x20, 0x20, 0x40),  // Highlight backing
 	XB_PAL_RGB8(0xD8, 0x00, 0xF8),  // Highlight main
 	XB_PAL_RGB8(0x5A, 0x00, 0xA8),  // Highlight sub
@@ -33,7 +33,7 @@ static const uint16_t kpcg_palette[] =
 	XB_PAL_RGB8(0x38, 0xD0, 0x70),  // Instrument column
 	XB_PAL_RGB8(0x70, 0x20, 0xD0),  // Effects command
 	XB_PAL_RGB8(0x28, 0x98, 0xD0),  // Effects param
-	0, // Unused
+	XB_PAL_RGB8(0xE8, 0xB8, 0x08),  // Volume column
 	0, // Unused
 	0, // Unused
 	0, // Unused
@@ -51,7 +51,7 @@ static const uint16_t kpcg_palette[] =
 	XB_PAL_RGB8(0x50, 0xF8, 0x70),  // Instrument column
 	XB_PAL_RGB8(0x80, 0x30, 0xF8),  // Effects command
 	XB_PAL_RGB8(0x40, 0xA8, 0xF8),  // Effects param
-	0, // Unused
+	XB_PAL_RGB8(0xF8, 0xC8, 0x10),  // Volume column
 	0, // Unused
 	0, // Unused
 	0, // Unused

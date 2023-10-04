@@ -1,7 +1,7 @@
 #ifndef XT_TRACK_H
 #define XT_TRACK_H
 
-#define XT_CMD_COL_COUNT 1
+#define XT_CMD_COL_COUNT 3
 
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
@@ -29,8 +29,6 @@ typedef enum XtCmd
 	XT_CMD_MULT_OP1 = '5',
 	XT_CMD_MULT_OP2 = '6',
 	XT_CMD_MULT_OP3 = '7',
-
-	XT_CMD_AMPLITUDE = 'A',
 
 	XT_CMD_BREAK = 'B',
 	XT_CMD_HALT = 'C',
@@ -91,6 +89,7 @@ typedef struct XtCell
 {
 	XtNote note;
 	uint8_t inst;
+	uint8_t vol;  // 0x80 - 0xFF for the actual volume, displayed as 0x00-0x7F.
 	struct
 	{
 		XtCmd cmd;

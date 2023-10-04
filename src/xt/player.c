@@ -99,7 +99,7 @@ static inline void xt_set_note_pitch_data(volatile XtOpmChannelState *opm_state,
 }
 
 // Command processing
-static inline void xt_read_cell_cmd(volatile XtPlayer *xt, volatile XtOpmChannelState *opm_state,
+static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
 	uint16_t opidx = 0;
@@ -127,10 +127,6 @@ static inline void xt_read_cell_cmd(volatile XtPlayer *xt, volatile XtOpmChannel
 			opidx = cmd - XT_CMD_MULT_OP0;
 			opm_state->patch.mul[opidx] = arg;
 			xb_opm_set_dt1_mul(opm_state->voice, opidx, patch->dt1[opidx], arg);
-			break;
-
-		case XT_CMD_AMPLITUDE:
-			opm_state->amplitude = arg;
 			break;
 
 		// TODO: These will require some sort of register for which row / etc
@@ -212,10 +208,20 @@ static inline void xt_note_off_reset(volatile XtOpmChannelState *opm_state)
 	opm_state->current_pitch = 0;
 }
 
-static inline void xt_read_opm_cell_data(const volatile XtPlayer *xt, int16_t i,
+static inline void read_vol_data_opm(int16_t i,
                                      volatile XtOpmChannelState *opm_state,
                                      const XtCell *cell)
 {
+	if (cell->vol < 0x80) return;
+	const uint8_t actual_vol = cell->vol & 0x7F;
+	opm_state->amplitude = actual_vol;
+}
+
+static inline void read_note_data_opm(const volatile XtPlayer *xt, int16_t i,
+                                      volatile XtOpmChannelState *opm_state,
+                                      const XtCell *cell)
+{
+	if (cell->note == XT_NOTE_NONE) return;
 	// NOTE: I'm explicitly checking for -1 here, because we may use -1 to
 	// indicate no patch (note change without key event) in the future.
 	if (opm_state->patch_no == -1 || cell->inst != opm_state->patch_no)
@@ -241,24 +247,6 @@ static inline void xt_read_opm_cell_data(const volatile XtPlayer *xt, int16_t i,
 		xt_set_note_pitch_data(opm_state, cell->note);
 		opm_state->key_state = KEY_STATE_ON_PENDING;
 		opm_state->key_on_delay_count = 0;
-	}
-}
-
-// Read note and patch data from a cell.
-static inline void xt_read_cell_data(const volatile XtPlayer *xt, int16_t i,
-                                     volatile XtOpmChannelState *opm_state,
-                                     const XtCell *cell)
-{
-	// Update note, and set it up to be played.
-	if (cell->note == XT_NOTE_NONE) return;
-
-	switch (xt->chan[i].type)
-	{
-		default:
-			return;
-		case XT_CHANNEL_OPM:
-			xt_read_opm_cell_data(xt, i, opm_state, cell);
-			break;
 	}
 }
 
@@ -338,6 +326,9 @@ void channel_reset(volatile XtChannelState *chan, int16_t voice)
 			chan->opm.key_command = KEY_COMMAND_OFF;
 			chan->opm.patch_no = -1;
 			chan->opm.amplitude = 0x7F;
+			chan->opm.key_on_delay_count = 0;
+			chan->opm.mute_delay_count = 0;
+			chan->opm.cut_delay_count = 0;
 			xb_opm_set_key_on(chan->opm.voice, 0x0);
 			break;
 	}
@@ -378,10 +369,11 @@ void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelS
 
 	if (xt->tick_counter == 0)
 	{
-		xt_read_cell_data(xt, i, opm_state, cell);
+		read_note_data_opm(xt, i, opm_state, cell);
+		read_vol_data_opm(i, opm_state, cell);
 		for (uint16_t j = 0; j < ARRAYSIZE(cell->cmd); j++)
 		{
-			xt_read_cell_cmd(xt, opm_state, cell->cmd[j].cmd, cell->cmd[j].arg);
+			read_cell_cmd_opm(xt, opm_state, cell->cmd[j].cmd, cell->cmd[j].arg);
 		}
 	}
 

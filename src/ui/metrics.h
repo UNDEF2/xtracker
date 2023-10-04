@@ -1,6 +1,8 @@
 #ifndef UI_METRICS_H
 #define UI_METRICS_H
 
+#include "ui/track_render.h"
+
 // Backing area
 #define XT_UI_PLANE 0
 #define XT_UI_AREA_X 0
@@ -13,7 +15,7 @@
 #define XT_UI_ROW_SPACING 8
 
 // Channel labels
-#define XT_UI_CHANLABEL_W 64
+#define XT_UI_CHANLABEL_W (XT_RENDER_CELL_W_PIXELS * XT_RENDER_CELL_CHARS)
 #define XT_UI_CHANLABEL_H 8
 #define XT_UI_CHANLABEL_Y (XT_UI_AREA_Y + XT_UI_AREA_H - XT_UI_CHANLABEL_H)
 

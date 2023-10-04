@@ -35,7 +35,7 @@ void xt_track_init(XtTrack *t)
 		else
 		{
 			data->type = XT_CHANNEL_ADPCM;
-			data->voice_number = i;
+			data->voice_number = i - 8;
 		}
 	}
 }
