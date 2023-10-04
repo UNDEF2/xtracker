@@ -149,8 +149,8 @@ void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins)
 		}
 
 		// As part of a full repaint, the instrument data will be redrawn as well.
-		a->data_repaint = true;
 		a->full_repaint = false;
+		a->data_repaint = true;
 	}
 
 	// Repaint any data that does not match what is current.
@@ -162,8 +162,8 @@ void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins)
 		case XT_CHANNEL_ADPCM:
 			// TODO: ADPCM painter
 			break;
-		a->data_repaint = false;
 	}
+	a->data_repaint = false;
 }
 
 // Mark all frames and the border as needing a redraw.
