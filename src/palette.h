@@ -1,5 +1,5 @@
-#ifndef XT_PALETTE_H
-#define XT_PALETTE_H
+#ifndef PALETTE_H
+#define PALETTE_H
 
 typedef enum XtPaletteColor
 {
@@ -13,4 +13,4 @@ typedef enum XtPaletteColor
 
 void xt_palette_init(void);
 
-#endif  // XT_PALETTE_H
+#endif  // PALETTE_H

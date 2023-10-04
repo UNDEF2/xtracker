@@ -2,7 +2,7 @@
 #include "ui/metrics.h"
 #include "ui/section_title.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 #include "common.h"
 #include <string.h>
 

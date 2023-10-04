@@ -28,8 +28,8 @@
 #include "ui/regdata_render.h"
 #include "ui/track_render.h"
 
+#include "palette.h"
 #include "xt.h"
-#include "xt_palette.h"
 #include "xt_instrument.h"
 
 static Xt s_xt;

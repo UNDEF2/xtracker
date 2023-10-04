@@ -1,7 +1,7 @@
 #include "ui/backing.h"
 #include "ui/metrics.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 
 #define XT_UI_LOGO_TILE 0x80
 

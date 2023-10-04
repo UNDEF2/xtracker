@@ -1,4 +1,4 @@
-#include "xt_palette.h"
+#include "palette.h"
 
 #include "common.h"
 #include <stdint.h>

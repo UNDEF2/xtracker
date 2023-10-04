@@ -1,7 +1,7 @@
 #include "ui/chanlabels.h"
 #include "ui/metrics.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 
 #include <stdbool.h>
 

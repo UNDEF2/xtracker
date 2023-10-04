@@ -1,7 +1,7 @@
 #include "ui/section_title.h"
 #include "ui/metrics.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 
 void ui_section_title_draw(const char *s, int16_t x, int16_t y, int16_t w, int16_t h)
 {

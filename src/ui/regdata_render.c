@@ -3,7 +3,7 @@
 #include "ui/section_title.h"
 #include "xt_instrument.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 #include "common.h"
 #include <string.h>
 

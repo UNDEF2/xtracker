@@ -1,7 +1,7 @@
 #include "ui/fnlabels.h"
 #include "ui/metrics.h"
 #include "util/cgprint.h"
-#include "xt_palette.h"
+#include "palette.h"
 
 void ui_fnlabel_set(uint16_t i, const char *s)
 {
