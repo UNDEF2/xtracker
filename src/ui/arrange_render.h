@@ -1,7 +1,7 @@
 #ifndef UI_ARRANGE_RENDER_H
 #define UI_ARRANGE_RENDER_H
 
-#include "xt_track.h"
+#include "xt/track.h"
 #include "ui/track_render.h"
 
 #include <stdbool.h>

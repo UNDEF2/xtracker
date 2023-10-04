@@ -1,12 +1,12 @@
-#ifndef _XT_H
-#define _XT_H
+#ifndef XT_PLAYER_H
+#define XT_PLAYER_H
 
 #include <stdint.h>
 #include "common.h"
 #include "xbase/opm.h"
-#include "xt_track.h"
-#include "xt_mod.h"
-#include "xt_instrument.h"
+#include "xt/track.h"
+#include "xt/mod.h"
+#include "xt/instrument.h"
 
 // Status of a single FM channel's pitch, which we must track to support
 // simple portamento effects and vibrato.
@@ -76,7 +76,7 @@ typedef struct XtChannelState
 	};
 } XtChannelState;
 
-typedef struct Xt
+typedef struct XtPlayer
 {
 	const XtTrack *track;
 
@@ -96,16 +96,16 @@ typedef struct Xt
 
 	bool repeat_frame;  // Repeats just the current frame.
 	bool playing;
-} Xt;
+} XtPlayer;
 
-void xt_init(Xt *xt, const XtTrack *track);
-void xt_poll(Xt *xt);
-void xt_update_opm_registers(Xt *xt);
+void xt_player_init(volatile XtPlayer *xt, const XtTrack *track);
+void xt_player_poll(volatile XtPlayer *xt);
+void xt_player_update_opm_registers(volatile XtPlayer *xt);
 
 // repeat to cause it to play the same frame repeatedly
-void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame);
-void xt_stop_playing(Xt *xt);
-bool xt_is_playing(const Xt *xt);
-void xt_get_playback_pos(const Xt *xt, int16_t *frame, int16_t *row);
+void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_frame);
+void xt_player_stop_playing(volatile XtPlayer *xt);
+bool xt_player_is_playing(const volatile XtPlayer *xt);
+void xt_player_get_playback_pos(const volatile XtPlayer *xt, volatile int16_t *frame, volatile int16_t *row);
 
 #endif  // _XT_H

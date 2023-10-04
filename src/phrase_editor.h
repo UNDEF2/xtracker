@@ -1,7 +1,7 @@
 #ifndef PHRASE_EDITOR_H
 #define PHRASE_EDITOR_H
 
-#include "xt_track.h"
+#include "xt/track.h"
 #include "ui/track_render.h"
 #include "xbase/keys.h"
 #include <stdint.h>

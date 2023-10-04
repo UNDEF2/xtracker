@@ -1,5 +1,5 @@
-#ifndef _XT_MOD_H
-#define _XT_MOD_H
+#ifndef XT_MOD_H
+#define XT_MOD_H
 
 #include <stdint.h>
 
@@ -24,6 +24,6 @@ typedef struct XtMod
 	int8_t value;
 } XtMod;
 
-void xt_mod_tick(XtMod *mod);
+void xt_mod_tick(volatile XtMod *mod);
 
-#endif  // _XT_MOD_H
+#endif  // XT_MOD_H

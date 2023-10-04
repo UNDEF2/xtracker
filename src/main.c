@@ -29,10 +29,12 @@
 #include "ui/track_render.h"
 
 #include "palette.h"
-#include "xt.h"
-#include "xt_instrument.h"
+#include "xt/player.h"
+#include "xt/instrument.h"
 
-static Xt s_xt;
+//
+// Editor / Interface state
+//
 static XtTrack s_track;
 static XtArrangeRenderer s_arrange_renderer;
 static XtRegdataRenderer s_regdata_renderer;
@@ -43,25 +45,34 @@ static XtArrangeEditor s_arrange_editor;
 static const char *s_filename;
 
 //
-// Interrupts (OPM timer and Vertical raster)
+// Player (driven by OPM timer interrupt)
 //
 
-static void (*s_old_vbl_isr)(void);
-static uint8_t s_old_ipl;
-static volatile bool s_vbl_hit;
+static volatile XtPlayer s_player;
+
+// Copies of last player status, updated in the OPM ISR during playback.
+static volatile int16_t s_player_frame;
+static volatile int16_t s_player_row;
 
 static void XB_ISR s_isr_opm(void)
 {
-	xt_poll(&s_xt);
-	xt_update_opm_registers(&s_xt);
+	xt_player_poll(&s_player);
+	xt_player_update_opm_registers(&s_player);
+	xt_player_get_playback_pos(&s_player, &s_player_frame, &s_player_row);
 	xb_opm_set_timer_flags(OPM_TIMER_FLAG_IRQ_EN_A | OPM_TIMER_FLAG_LOAD_A | OPM_TIMER_FLAG_F_RESET_A);
 }
+
+//
+// Interrupt management (VBL and original IPL storage)
+//
+static uint8_t s_old_ipl;
+static void (*s_old_vbl_isr)(void);
+static volatile bool s_vbl_hit;
 
 static void XB_ISR s_isr_vbl(void)
 {
 	s_vbl_hit = true;
 }
-
 
 static void wait_for_vbl(void)
 {
@@ -106,7 +117,7 @@ void set_demo_instruments(void)
 {
 	XtInstrument *ins = &s_track.instruments[0];
 
-	// Instrument $00 - The bass from Private Eye (Daiginjou), sort of
+	// Instrument $00
 	memset(ins, 0, sizeof(*ins));
 	ins->type = XT_CHANNEL_OPM;
 	ins->valid = true;
@@ -181,16 +192,20 @@ typedef enum XtUiFocus
 	XT_UI_FOCUS_QUIT,
 } XtUiFocus;
 
+// Draws the channel labels above each column.
 static void draw_chanlabels(int16_t cam_x)
 {
-	const int16_t left_visible_channel = cam_x / (XT_RENDER_CELL_W_PIXELS * XT_RENDER_CELL_CHARS);
+	const int16_t left_visible_channel = cam_x / (XT_RENDER_CELL_W_PIXELS *
+	                                              XT_RENDER_CELL_CHARS);
 	for (int16_t i = 0; i < XT_RENDER_VISIBLE_CHANNELS; i++)
 	{
-		const XtChannelType type = s_track.channel_data[left_visible_channel + i].type;
-		ui_chanlabel_set(i, left_visible_channel + i, type);
+		const int chan_idx = left_visible_channel + i;
+		const XtChannelType type = s_track.channel_data[chan_idx].type;
+		ui_chanlabel_set(i, chan_idx, type);
 	}
 }
 
+// Updates the channel labels if the draw position has changed since last time.
 static void maybe_set_chanlabels(int16_t cam_x)
 {
 	static int16_t s_last_cam_x = -1;
@@ -201,6 +216,7 @@ static void maybe_set_chanlabels(int16_t cam_x)
 	}
 }
 
+// Draws the function key labels at the bottom of the screen.
 static void draw_fnlabels(XtUiFocus focus, bool ctrl_held)
 {
 	switch (focus)
@@ -225,6 +241,7 @@ static void draw_fnlabels(XtUiFocus focus, bool ctrl_held)
 	ui_fnlabel_set(9, "File");
 }
 
+// Updates the function key labels if the UI focus has changed.
 static void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus focus)
 {
 	static XtUiFocus last_focus = -1;
@@ -239,23 +256,24 @@ static void maybe_set_fnlabels(XBKeyEvent *ev, XtUiFocus focus)
 
 }
 
+// Starts or stops music playback.
 static void toggle_playback(XBKeyEvent key_event)
 {
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	if (key_event.modifiers & XB_KEY_MOD_KEY_UP) goto done;
-	if (xt_is_playing(&s_xt))
+	if (xt_player_is_playing(&s_player))
 	{
 		if (key_event.name == XB_KEY_CR)
 		{
-			xt_stop_playing(&s_xt);
+			xt_player_stop_playing(&s_player);
 		}
 	}
 	else
 	{
 		if (key_event.name == XB_KEY_CR)
 		{
-			xt_start_playing(&s_xt, s_phrase_editor.frame,
-			                 xb_key_on(XB_KEY_SHIFT));
+			xt_player_start_playing(&s_player, s_phrase_editor.frame,
+			                        xb_key_on(XB_KEY_SHIFT));
 		}
 		xt_phrase_editor_on_key(&s_phrase_editor, &s_track, key_event);
 	}
@@ -268,9 +286,9 @@ static void update_scroll(void)
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	// Set camera / scroll for pattern field.
 	// Focus the "camera" down a little bit to make room for the HUD.
-	if (xt_is_playing(&s_xt))
+	if (xt_player_is_playing(&s_player))
 	{
-		const int16_t yscroll = (s_xt.current_phrase_row - 16) * 8;
+		const int16_t yscroll = (s_player_row - 16) * 8;
 		xt_track_renderer_set_camera(&s_track_renderer,
 		                             xt_phrase_editor_get_cam_x(&s_phrase_editor),
 		                             yscroll);
@@ -285,6 +303,7 @@ static void update_scroll(void)
 	xb_set_ipl(old_ipl);
 }
 
+// Draws the current UI focus if it has changed since last time.
 static void maybe_draw_focus_label(XtUiFocus focus)
 {
 	static XtUiFocus s_last_focus = -1;
@@ -314,8 +333,10 @@ static void maybe_draw_focus_label(XtUiFocus focus)
 	}
 	cgbox(XT_UI_PLANE, XT_PAL_BACK, XT_UI_FOCUS_LABEL_X, XT_UI_FOCUS_LABEL_Y,
 	      XT_UI_FOCUS_LABEL_W, XT_UI_FOCUS_LABEL_H);
-	cgprint(XT_UI_PLANE, XT_PAL_MAIN, str, XT_UI_FOCUS_LABEL_X, XT_UI_FOCUS_LABEL_Y);
+	cgprint(XT_UI_PLANE, XT_PAL_MAIN, str,
+	        XT_UI_FOCUS_LABEL_X, XT_UI_FOCUS_LABEL_Y);
 }
+
 
 static void editor_render(XtUiFocus focus)
 {
@@ -342,7 +363,7 @@ static void editor_render(XtUiFocus focus)
 
 	// Update the track renderer to repaint pattern data.
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
-	const int16_t displayed_frame = (xt_is_playing(&s_xt) ? s_xt.current_frame : s_phrase_editor.frame);
+	const int16_t displayed_frame = (xt_player_is_playing(&s_player) ? s_player_frame : s_phrase_editor.frame);
 	xb_set_ipl(old_ipl);
 	xt_track_renderer_tick(&s_track_renderer, &s_track, displayed_frame);
 	maybe_set_chanlabels(xt_phrase_editor_get_cam_x(&s_phrase_editor));
@@ -361,7 +382,7 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 	XBKeyEvent key_event;
 
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
-	const bool playing = xt_is_playing(&s_xt);
+	const bool playing = xt_player_is_playing(&s_player);
 	xb_set_ipl(old_ipl);
 
 	while (xb_keys_event_pop(&key_event))
@@ -438,9 +459,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				}
 				else
 				{
-					s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
-					s_arrange_editor.frame = s_xt.current_frame;
-					xb_set_ipl(s_old_ipl);
+					const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
+					s_arrange_editor.frame = s_player_frame;
+					xb_set_ipl(old_ipl);
 				}
 				break;
 
@@ -462,9 +483,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					}
 					else
 					{
-						s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
-						s_arrange_editor.frame = s_xt.current_frame;
-						xb_set_ipl(s_old_ipl);
+						const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
+						s_arrange_editor.frame = s_player_frame;
+						xb_set_ipl(old_ipl);
 					}
 				}
 				break;
@@ -503,7 +524,7 @@ int main(int argc, char **argv)
 	cgprint_load("RES\\CGDAT.BIN");
 	txprintf(0, 16, 0, "");
 
-	xt_init(&s_xt, &s_track);
+	xt_player_init(&s_player, &s_track);
 	xt_cursor_init();
 	xt_track_renderer_init(&s_track_renderer);
 	xt_arrange_renderer_init(&s_arrange_renderer);
@@ -516,7 +537,7 @@ int main(int argc, char **argv)
 	// Track file load.
 	bool file_loaded = false;
 	if (argc > 1) s_filename = argv[1];
-	if (s_filename) file_loaded = xt_track_load_from_file(&s_track, s_filename);
+	if (s_filename) file_loaded = (xt_track_load_from_file(&s_track, s_filename) == XT_RES_OK);
 
 	if (!file_loaded)
 	{

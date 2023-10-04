@@ -7,7 +7,7 @@
 
 #include "xbase/opm.h"
 
-#include "xt_types.h"
+#include "xt/types.h"
 
 typedef enum XtChannelType
 {

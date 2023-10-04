@@ -1,9 +1,8 @@
-#ifndef _XT_TRACK_RENDER_H
-#define _XT_TRACK_RENDER_H
+#ifndef UI_TRACK_RENDER_H
+#define UI_TRACK_RENDER_H
 
-#include "xt.h"
-
-#include "xt_track.h"
+#include "xt/player.h"
+#include "xt/track.h"
 
 #define XT_RENDER_CELL_W_PIXELS 8
 #define XT_RENDER_CELL_H_PIXELS 8
@@ -51,4 +50,4 @@ void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame);
 
 void xt_track_renderer_set_camera(XtTrackRenderer *r, int16_t x, int16_t y);
 
-#endif  // XT_TRACK_RENDER
+#endif  // UI_TRACK_RENDER

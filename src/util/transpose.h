@@ -2,7 +2,7 @@
 #define UTIL_TRANSPOSE_H
 
 #include <stdint.h>
-#include "xt_track.h"
+#include "xt/track.h"
 
 XtNote xt_transpose_note(XtNote note, int16_t semitones);
 

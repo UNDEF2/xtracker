@@ -1,7 +1,7 @@
 #ifndef UI_CHANLABELS_H
 #define UI_CHANLABELS_H
 
-#include "xt_instrument.h"
+#include "xt/instrument.h"
 #include <stdint.h>
 
 // Renders channel label index i to reflect displayed channel num.

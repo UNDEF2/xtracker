@@ -1,4 +1,4 @@
-#include "xt_track.h"
+#include "xt/track.h"
 #include <dos.h>
 #include <string.h>
 #include "common.h"
@@ -40,7 +40,7 @@ void xt_track_init(XtTrack *t)
 	}
 }
 
-bool xt_track_save_to_file(const XtTrack *t, const char *fname)
+XtResult xt_track_save_to_file(const XtTrack *t, const char *fname)
 {
 	int fname_handle = _dos_open(fname, 0x0001);
 	if (fname_handle < 0)
@@ -51,7 +51,7 @@ bool xt_track_save_to_file(const XtTrack *t, const char *fname)
 		{
 			printf("Could not create file \"%s\" (code %d)\n",
 			       fname, fname_handle);
-			return false;
+			return XT_RES_FILE_WRITE_ERROR;
 		}
 	}
 
@@ -61,17 +61,17 @@ bool xt_track_save_to_file(const XtTrack *t, const char *fname)
 	printf("Wrote %d bytes to \"%s\".\n", bytes_written, fname);
 
 	_dos_close(fname_handle);
-	return true;
+	return XT_RES_OK;
 }
 
-bool xt_track_load_from_file(XtTrack *t, const char *fname)
+XtResult xt_track_load_from_file(XtTrack *t, const char *fname)
 {
 	const int fname_handle = _dos_open(fname, 0x0000);
 	// -2: file does not exist
 	if (fname_handle < 0)
 	{
 		printf("Could not open \"%s\".\n", fname);
-		return false;
+		return XT_RES_FILE_NOT_FOUND;
 	}
 
 	const int bytes_read = _dos_read(fname_handle, (char *)t, sizeof(*t));
@@ -80,5 +80,5 @@ bool xt_track_load_from_file(XtTrack *t, const char *fname)
 
 	_dos_close(fname_handle);
 
-	return true;
+	return XT_RES_OK;
 }

@@ -1,5 +1,5 @@
-#ifndef _XT_TRACK_H
-#define _XT_TRACK_H
+#ifndef XT_TRACK_H
+#define XT_TRACK_H
 
 #define XT_CMD_COL_COUNT 1
 
@@ -13,7 +13,8 @@
 #define XT_INSTRUMENT_COUNT 64
 #define XT_SAMPLE_COUNT 64
 
-#include "xt_instrument.h"
+#include "xt/instrument.h"
+#include "xt/types.h"
 
 typedef enum XtCmd
 {
@@ -159,7 +160,7 @@ typedef struct XtTrack
 XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);
 
 void xt_track_init(XtTrack *t);
-bool xt_track_save_to_file(const XtTrack *t, const char *fname);
-bool xt_track_load_from_file(XtTrack *t, const char *fname);
+XtResult xt_track_save_to_file(const XtTrack *t, const char *fname);
+XtResult xt_track_load_from_file(XtTrack *t, const char *fname);
 
-#endif  // _XT_TRACK_H
+#endif  // XT_TRACK_H

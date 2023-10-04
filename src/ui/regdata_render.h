@@ -1,8 +1,8 @@
 #ifndef UI_REGDATA_RENDER_H
 #define UI_REGDATA_RENDER_H
 
-#include "xt_track.h"
-#include "xt_instrument.h"
+#include "xt/track.h"
+#include "xt/instrument.h"
 
 #include <stdbool.h>
 

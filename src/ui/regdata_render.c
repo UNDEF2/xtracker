@@ -1,7 +1,7 @@
 #include "ui/regdata_render.h"
 #include "ui/metrics.h"
 #include "ui/section_title.h"
-#include "xt_instrument.h"
+#include "xt/instrument.h"
 #include "util/cgprint.h"
 #include "palette.h"
 #include "common.h"

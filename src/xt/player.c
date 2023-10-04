@@ -1,4 +1,4 @@
-#include "xt.h"
+#include "xt/player.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -15,7 +15,7 @@
 static uint8_t s_pitch_table[8 * 12];
 
 // Sets TL for a patch, accounting for the current amplitude value.
-static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
+static inline void xt_set_opm_patch_tl(volatile XtOpmChannelState *opm_state)
 {
 	// Defines for each algorithm which operators are carriers.
 	const bool carrier_tbl[4 * 8] =
@@ -30,7 +30,7 @@ static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
 		/* 6 */ false,  true,   true,   true,
 		/* 7 */ true,   true,   true,   true,
 	};
-	XtOpmPatch *patch = &opm_state->patch;
+	volatile XtOpmPatch *patch = &opm_state->patch;
 	const uint8_t i = opm_state->voice;
 	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
 	{
@@ -59,9 +59,9 @@ static inline void xt_set_opm_patch_tl(XtOpmChannelState *opm_state)
 }
 
 // Sets the whole patch.
-static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
+static void xt_set_opm_patch_full(volatile XtOpmChannelState *opm_state)
 {
-	XtOpmPatch *patch = &opm_state->patch;
+	volatile XtOpmPatch *patch = &opm_state->patch;
 	const uint8_t i = opm_state->voice;
 	xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
 	xb_opm_set_pms_ams(i, patch->pms, patch->ams);
@@ -82,7 +82,7 @@ static void xt_set_opm_patch_full(XtOpmChannelState *opm_state)
 //
 
 // Sets target pitch data based on a note value.
-static inline void xt_set_note_pitch_data(XtOpmChannelState *opm_state,
+static inline void xt_set_note_pitch_data(volatile XtOpmChannelState *opm_state,
                                           XtNote note)
 {
 	// convert {octave, note} to pitch number
@@ -99,11 +99,11 @@ static inline void xt_set_note_pitch_data(XtOpmChannelState *opm_state,
 }
 
 // Command processing
-static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
+static inline void xt_read_cell_cmd(volatile XtPlayer *xt, volatile XtOpmChannelState *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
 	uint16_t opidx = 0;
-	XtOpmPatch *patch = &opm_state->patch;
+	volatile XtOpmPatch *patch = &opm_state->patch;
 	if (cmd == XT_CMD_NONE) return;
 	switch (cmd)
 	{
@@ -204,7 +204,7 @@ static inline void xt_read_cell_cmd(Xt *xt, XtOpmChannelState *opm_state,
 	}
 }
 
-static inline void xt_note_off_reset(XtOpmChannelState *opm_state)
+static inline void xt_note_off_reset(volatile XtOpmChannelState *opm_state)
 {
 	opm_state->key_command = KEY_COMMAND_OFF;
 	opm_state->key_on_delay_count = 0;
@@ -212,8 +212,8 @@ static inline void xt_note_off_reset(XtOpmChannelState *opm_state)
 	opm_state->current_pitch = 0;
 }
 
-static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
-                                     XtOpmChannelState *opm_state,
+static inline void xt_read_opm_cell_data(const volatile XtPlayer *xt, int16_t i,
+                                     volatile XtOpmChannelState *opm_state,
                                      const XtCell *cell)
 {
 	// NOTE: I'm explicitly checking for -1 here, because we may use -1 to
@@ -245,8 +245,8 @@ static inline void xt_read_opm_cell_data(const Xt *xt, int16_t i,
 }
 
 // Read note and patch data from a cell.
-static inline void xt_read_cell_data(const Xt *xt, int16_t i,
-                                     XtOpmChannelState *opm_state,
+static inline void xt_read_cell_data(const volatile XtPlayer *xt, int16_t i,
+                                     volatile XtOpmChannelState *opm_state,
                                      const XtCell *cell)
 {
 	// Update note, and set it up to be played.
@@ -262,7 +262,7 @@ static inline void xt_read_cell_data(const Xt *xt, int16_t i,
 	}
 }
 
-static inline void xt_update_key_state(XtOpmChannelState *opm_state)
+static inline void xt_player_update_key_state(volatile XtOpmChannelState *opm_state)
 {
 	if (opm_state->key_on_delay_count > 0)
 	{
@@ -298,7 +298,7 @@ static inline void xt_update_key_state(XtOpmChannelState *opm_state)
 	}
 }
 
-static inline void xt_playback_counters(Xt *xt)
+static inline void xt_playback_counters(volatile XtPlayer *xt)
 {
 	xt->tick_counter++;
 	if (xt->tick_counter >= xt->current_ticks_per_row)
@@ -325,7 +325,7 @@ static inline void xt_playback_counters(Xt *xt)
 	}
 }
 
-void channel_reset(XtChannelState *chan, int16_t voice)
+void channel_reset(volatile XtChannelState *chan, int16_t voice)
 {
 	switch (chan->type)
 	{
@@ -343,9 +343,12 @@ void channel_reset(XtChannelState *chan, int16_t voice)
 	}
 }
 
-void xt_init(Xt *xt, const XtTrack *track)
+void xt_player_init(volatile XtPlayer *xt, const XtTrack *track)
 {
-	memset(xt, 0, sizeof(*xt));
+	// Not using memset because there isn't a memset compatible with volatile
+	// semantics available to us.
+	volatile uint8_t *xt_u8 = (volatile uint8_t *)xt;
+	for (size_t i = 0; i < sizeof(*xt); i++) xt_u8[i] = 0;
 	xt->track = track;
 
 	// Populate pitch table.
@@ -364,7 +367,7 @@ void xt_init(Xt *xt, const XtTrack *track)
 	}
 }
 
-void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
+void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelState *opm_state)
 {
 	const XtTrackChannelData *channel_data = &xt->track->channel_data[i];
 	const uint16_t phrase_idx = xt->track->frames[xt->current_frame].phrase_id[i];
@@ -436,23 +439,23 @@ void xt_poll_opm(Xt *xt, int16_t i, XtOpmChannelState *opm_state)
 	// TODO: Add vibrato to the pitch register caches (not applied to the
 	// pitch data itself)
 
-	xt_update_key_state(opm_state);
+	xt_player_update_key_state(opm_state);
 }
-
-void xt_poll(Xt *xt)
+volatile 
+void xt_player_poll(volatile XtPlayer *xt)
 {
 	if (!xt->playing) return;
 	// Process all channels for playback.
 	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
 	{
-		XtChannelState *chan = &xt->chan[i];
+		volatile XtChannelState *chan = &xt->chan[i];
 		switch (chan->type)
 		{
 			default:
 				break;
 
 			case XT_CHANNEL_OPM:
-				xt_poll_opm(xt, i, &chan->opm);
+				xt_player_poll_opm(xt, i, &chan->opm);
 				break;
 
 			case XT_CHANNEL_ADPCM:
@@ -464,14 +467,14 @@ void xt_poll(Xt *xt)
 	xt_playback_counters(xt);
 }
 
-void xt_update_opm_registers(Xt *xt)
+void xt_player_update_opm_registers(volatile XtPlayer *xt)
 {
 	const uint8_t old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	// Commit registers based on new state.
 	for (uint16_t i = 0; i < 8; i++)
 	{
 		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
-		XtOpmChannelState *opm_state = &xt->chan[i].opm;
+		volatile XtOpmChannelState *opm_state = &xt->chan[i].opm;
 		xt_set_opm_patch_tl(opm_state);
 
 		// Key state
@@ -506,7 +509,7 @@ static inline void cut_all_opm_sound(void)
 	xb_opm_commit();
 }
 
-void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
+void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_frame)
 {
 	const uint8_t s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	cut_all_opm_sound();
@@ -539,7 +542,7 @@ void xt_start_playing(Xt *xt, int16_t frame, bool repeat_frame)
 	xb_set_ipl(s_old_ipl);
 }
 
-void xt_stop_playing(Xt *xt)
+void xt_player_stop_playing(volatile XtPlayer *xt)
 {
 	const uint8_t s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	cut_all_opm_sound();
@@ -547,7 +550,13 @@ void xt_stop_playing(Xt *xt)
 	xb_set_ipl(s_old_ipl);
 }
 
-bool xt_is_playing(const Xt *xt)
+bool xt_player_is_playing(const volatile XtPlayer *xt)
 {
 	return xt->playing;
+}
+
+void xt_player_get_playback_pos(const volatile XtPlayer *xt, volatile int16_t *frame, volatile int16_t *row)
+{
+	if (frame) *frame = xt->current_frame;
+	if (row) *row = xt->current_phrase_row;
 }

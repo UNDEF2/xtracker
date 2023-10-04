@@ -1,8 +1,8 @@
-#include "xt_mod.h"
+#include "xt/mod.h"
 
 #define MOD_TABLE_SIZE 32
 
-static const int8_t mod_table_square[] =
+static const int8_t mod_table_square[MOD_TABLE_SIZE] =
 {
 	-127, -127, -127, -127, -127, -127, -127, -127,
 	-127, -127, -127, -127, -127, -127, -127, -127,
@@ -10,7 +10,7 @@ static const int8_t mod_table_square[] =
 	127, 127, 127, 127, 127, 127, 127, 127,
 };
 
-static inline void tick_internal(XtMod *mod)
+static inline void tick_internal(volatile XtMod *mod)
 {
 	if (mod->accumulator >= 0xF - mod->speed)
 	{
@@ -21,7 +21,7 @@ static inline void tick_internal(XtMod *mod)
 	else mod->accumulator++;
 }
 
-void xt_mod_tick(XtMod *mod)
+void xt_mod_tick(volatile XtMod *mod)
 {
 	// Repeated internal ticks effectively multiply the speed.
 	tick_internal(mod);

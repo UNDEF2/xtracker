@@ -1,4 +1,4 @@
-#include "xt_instrument.h"
+#include "xt/instrument.h"
 
 #include "common.h"
 
