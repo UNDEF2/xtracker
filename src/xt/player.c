@@ -2,7 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
-
+#include "util/cgprint.h"
 #include "xbase/ipl.h"
 #include "xbase/opm.h"
 #include "util/transpose.h"
@@ -32,6 +32,7 @@ static inline void xt_set_opm_patch_tl(volatile XtOpmChannelState *opm_state)
 	};
 	volatile XtOpmPatch *patch = &opm_state->patch;
 	const uint8_t i = opm_state->voice;
+
 	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
 	{
 		// Only carriers multiply the amplitude.
@@ -220,9 +221,9 @@ static inline void xt_read_opm_cell_data(const volatile XtPlayer *xt, int16_t i,
 	if (opm_state->patch_no == -1 || cell->inst != opm_state->patch_no)
 	{
 		opm_state->patch_no = cell->inst;
+		opm_state->patch = xt->track->instruments[cell->inst].opm;
 		xt_set_opm_patch_full(opm_state);
 	}
-	opm_state->patch = xt->track->instruments[cell->inst].opm;
 
 	if (cell->note == XT_NOTE_OFF)
 	{
@@ -444,8 +445,9 @@ volatile
 void xt_player_poll(volatile XtPlayer *xt)
 {
 	if (!xt->playing) return;
+	cgbox(XT_UI_PLANE, 0, 8, 92, 64, 64);
 	// Process all channels for playback.
-	for (uint16_t i = 0; i < ARRAYSIZE(xt->chan); i++)
+	for (uint16_t i = 0; i < 8; i++)  // TODO: Make sure channel type is set right!!! ARRAYSIZE(xt->chan); i++)
 	{
 		volatile XtChannelState *chan = &xt->chan[i];
 		switch (chan->type)

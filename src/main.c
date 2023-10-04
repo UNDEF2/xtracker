@@ -122,7 +122,7 @@ void set_demo_instruments(void)
 
 	// Instrument $00
 	ins->type = XT_CHANNEL_OPM;
-	snprintf(ins->name, sizeof(ins->name), "BossBass");
+	snprintf(ins->name, sizeof(ins->name), "Bass");
 
 	// In furnace UI order
 	ins->opm.fl = 1;
@@ -202,7 +202,61 @@ void set_demo_instruments(void)
 		ins->opm.ame[i] = val++;
 	}
 
-	s_track.num_instruments = 2;
+	ins++;
+	snprintf(ins->name, sizeof(ins->name), "Just Sine");
+	ins->opm.fl = 1;
+	ins->opm.con = 0;
+	ins->opm.pms = 0;
+	ins->opm.ams = 0;
+	ins->opm.ar [0] = 31; // AKA A
+	ins->opm.d1r[0] = 18; // AKA D
+	ins->opm.d1l[0] = 2;  // AKA S
+	ins->opm.d2r[0] = 0;  // AKA D2
+	ins->opm.rr [0] = 15;  // AKA R
+	ins->opm.tl [0] = 127;
+	ins->opm.ks [0] = 0;  // AKA RS
+	ins->opm.mul[0] = 10;  // AKA ML
+	ins->opm.dt1[0] = 0;  // AKA DT
+	ins->opm.dt2[0] = 0;  // AKA DT2
+	ins->opm.ame[0] = 0;  // AKA AM
+
+	ins->opm.ar [2] = 31; // AKA A
+	ins->opm.d1r[2] = 14; // AKA D
+	ins->opm.d1l[2] = 2;  // AKA S
+	ins->opm.d2r[2] = 4;  // AKA D2
+	ins->opm.rr [2] = 15;  // AKA R
+	ins->opm.tl [2] = 127;
+	ins->opm.ks [2] = 0;  // AKA RS
+	ins->opm.mul[2] = 0;  // AKA ML
+	ins->opm.dt1[2] = 0x100 - 3;  // AKA DT
+	ins->opm.dt2[2] = 0;  // AKA DT2
+	ins->opm.ame[2] = 0;  // AKA AM
+
+	ins->opm.ar [1] = 31; // AKA A
+	ins->opm.d1r[1] = 10; // AKA D
+	ins->opm.d1l[1] = 2;  // AKA S
+	ins->opm.d2r[1] = 4;  // AKA D2
+	ins->opm.rr [1] = 15;  // AKA R
+	ins->opm.tl [1] = 127;
+	ins->opm.ks [1] = 1;  // AKA RS
+	ins->opm.mul[1] = 0;  // AKA ML
+	ins->opm.dt1[1] = 3;  // AKA DT
+	ins->opm.dt2[1] = 0;  // AKA DT2
+	ins->opm.ame[1] = 0;  // AKA AM
+
+	ins->opm.ar [3] = 31; // AKA A
+	ins->opm.d1r[3] = 5; // AKA D
+	ins->opm.d1l[3] = 0;  // AKA S
+	ins->opm.d2r[3] = 2;  // AKA D2
+	ins->opm.rr [3] = 15;  // AKA R
+	ins->opm.tl [3] = 5;
+	ins->opm.ks [3] = 1;  // AKA RS
+	ins->opm.mul[3] = 4;  // AKA ML
+	ins->opm.dt1[3] = 0; // AKA DT
+	ins->opm.dt2[3] = 0;  // AKA DT2
+	ins->opm.ame[3] = 0;  // AKA AM
+
+	s_track.num_instruments = 3;
 }
 
 //

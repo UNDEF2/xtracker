@@ -57,8 +57,6 @@ static void opm_reg_paint(XtOpmPatch *cur, const XtOpmPatch *new, bool force)
 		       kbase_x + XT_UI_REGDATA_CONCHART_OFFS_X,
 		       kbase_y + XT_UI_REGDATA_CONCHART_OFFS_Y,
 		       con_tileidx[new->con], 4, 4);
-
-
 	}
 	if (force || cur->pms != new->pms)
 	{
@@ -120,6 +118,17 @@ static void opm_backing_paint(void)
 	cgtile(XT_UI_PLANE,
 	       kbase_x + XT_UI_REGDATA_TABLE_OFFS_X, kbase_y + XT_UI_REGDATA_TABLE_OFFS_Y,
 	       0xE0, 23, 1);
+	
+	// OPerator numbers for the table (in funky order)
+	static const uint8_t kop_lut[4] = {1, 3, 2, 4};
+	for (uint16_t i = 0; i < ARRAYSIZE(kop_lut); i++)
+	{
+		cgprint_hex1(XT_UI_PLANE, XT_PAL_INACTIVE,
+		             kbase_x + XT_UI_REGDATA_TABLE_OFFS_X - 6,
+		             kbase_y + (XT_UI_ROW_SPACING * i) + XT_UI_REGDATA_TABLE_OFFS_Y,
+		             i);
+		
+	}
 }
 
 // Draw the instrument table as-needed based on track data and the provided

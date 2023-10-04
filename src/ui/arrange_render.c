@@ -70,14 +70,23 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 		// now compare the reference frame to what we've already drawn.
 		for (int16_t j = 0; j < ARRAYSIZE(current->phrase_id); j++)
 		{
+			const bool is_editor_col = j == a->edit.column;
+			const bool is_center_row = i == (ARRAYSIZE(a->frames) / 2);
+
 			if (ref)
 			{
-				if (current->phrase_id[j] == ref->phrase_id[j] && j != col)
+				// The ID is mangled a little to mark the highlight in the ID
+				// cache so that it is rewritten if the cursor moves.
+				const int16_t effective_id = (ref->phrase_id[j] & 0x3FFF) |
+				                             ((is_editor_col && is_center_row) ?
+				                             0x4000 : 0x0000);
+				// If nothing has changed, skip this cell.
+				if (current->phrase_id[j] == effective_id)
 				{
 					cell_x += XT_UI_COL_SPACING;
 					continue;
 				}
-				current->phrase_id[j] = ref->phrase_id[j];
+				current->phrase_id[j] = effective_id;
 			}
 			else
 			{
@@ -97,25 +106,21 @@ void xt_arrange_renderer_tick(XtArrangeRenderer *a, const XtTrack *t,
 				current->phrase_id[j] = -1;
 			}
 
-			// Redraw the current phrase id.
+			// Cell graphical update
 			if (current->phrase_id[j] == -1)
 			{
 				cgbox(XT_UI_PLANE, XT_PAL_BACK, cell_x, cell_y,
-				      XT_UI_COL_SPACING, XT_UI_ROW_SPACING);
+				      12, 7);
 			}
 			else
 			{
 				// Choose palette to highlight
-				const bool is_editor_col = j == a->edit.column;
-				const bool is_center_row = i == (ARRAYSIZE(a->frames) / 2);
 				int16_t pal = XT_PAL_INACTIVE;
 				if (is_center_row) pal = XT_PAL_ACCENT2;
 				if (is_editor_col && is_center_row) pal = XT_PAL_MAIN;  // TODO: Don't do this if editor is inactive?
 
-				cgprint_hex2(XT_UI_PLANE, pal, cell_x, cell_y, current->phrase_id[j]);
-				// Highlighted cells get marked for potential repaint so if it
-				// is no longer highlighted it gets put back to normal.
-				if (is_editor_col && is_center_row) current->phrase_id[j] = -1;
+				const uint8_t display_id = current->phrase_id[j] & 0xFF;
+				cgprint_hex2(XT_UI_PLANE, pal, cell_x, cell_y, display_id);
 			}
 
 			cell_x += XT_UI_COL_SPACING;
