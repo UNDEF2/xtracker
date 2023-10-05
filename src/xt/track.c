@@ -13,28 +13,29 @@ void xt_track_init(XtTrack *t)
 {
 	// Set defaults.
 	memset(t, 0, sizeof(*t));
-	t->num_frames = 1;
+
+	t->meta.row_highlight[0] = 4;
+	t->meta.row_highlight[1] = 16;
+	t->meta.phrase_length = 32;
+	t->meta.timer_period = 0x40;
+	t->meta.groove[0] = 6;
+	t->meta.groove[1] = 6;
+	t->meta.loop_point = 0;
+
 	t->num_instruments = 1;
-	t->row_highlight[0] = 4;
-	t->row_highlight[1] = 16;
-
-	t->ticks_per_row = 6;
-	t->timer_period = 0x30;
-
-	t->phrase_length = 32;
-	t->loop_point = 0;
+	t->num_frames = 1;
 
 	for (int16_t i = 0; i < ARRAYSIZE(t->channel_data); i++)
 	{
 		XtTrackChannelData *data = &t->channel_data[i];
 		if (i < 8)
 		{
-			data->type = XT_CHANNEL_OPM;
+			data->type = XT_INSTRUMENT_TYPE_OPM;
 			data->voice_number = i;
 		}
 		else
 		{
-			data->type = XT_CHANNEL_ADPCM;
+			data->type = XT_INSTRUMENT_TYPE_MSM6258;
 			data->voice_number = i - 8;
 		}
 	}
@@ -45,12 +46,12 @@ XtResult xt_track_save_to_file(const XtTrack *t, const char *fname)
 	int fname_handle = _dos_open(fname, 0x0001);
 	if (fname_handle < 0)
 	{
-		printf("Creating new file \"%s\".\n", fname);
+//		printf("Creating new file \"%s\".\n", fname);
 		fname_handle = _dos_create(fname, 0);  // __a_ ____
 		if (fname_handle < 0)
 		{
-			printf("Could not create file \"%s\" (code %d)\n",
-			       fname, fname_handle);
+//			printf("Could not create file \"%s\" (code %d)\n",
+//			       fname, fname_handle);
 			return XT_RES_FILE_WRITE_ERROR;
 		}
 	}
@@ -58,9 +59,10 @@ XtResult xt_track_save_to_file(const XtTrack *t, const char *fname)
 	const int bytes_written = _dos_write(fname_handle,
 	                                     (const char *)t,
 	                                     sizeof(*t));
-	printf("Wrote %d bytes to \"%s\".\n", bytes_written, fname);
+//	printf("Wrote %d bytes to \"%s\".\n", bytes_written, fname);
 
 	_dos_close(fname_handle);
+	if (bytes_written != sizeof(*t)) return XT_RES_FILE_TRUNCATED;
 	return XT_RES_OK;
 }
 
@@ -70,15 +72,16 @@ XtResult xt_track_load_from_file(XtTrack *t, const char *fname)
 	// -2: file does not exist
 	if (fname_handle < 0)
 	{
-		printf("Could not open \"%s\".\n", fname);
+//		printf("Could not open \"%s\".\n", fname);
 		return XT_RES_FILE_NOT_FOUND;
 	}
 
 	const int bytes_read = _dos_read(fname_handle, (char *)t, sizeof(*t));
 
-	printf("Read %d bytes from \"%s\".\n", bytes_read, fname);
+//	printf("Read %d bytes from \"%s\".\n", bytes_read, fname);
 
 	_dos_close(fname_handle);
+	if (bytes_read != sizeof(*t)) return XT_RES_FILE_TRUNCATED;
 
 	return XT_RES_OK;
 }

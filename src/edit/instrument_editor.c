@@ -145,7 +145,7 @@ static XtKeyNumberPairing knumber_key_lookup[] =
 };
 
 // Returns true if a key entry was accepted.
-static inline bool number_entry_opm(XtInstrumentEditor *a, XtOpmPatch *opm, XBKey key)
+static inline bool number_entry_opm(XtInstrumentEditor *a, XtInstrumentOpm *opm, XBKey key)
 {
 	typedef struct Spec
 	{
@@ -265,7 +265,7 @@ modified:
 	return true;
 }
 
-static void copy_opm(XtInstrumentEditor *a, XtOpmPatch *opm, int16_t row)
+static void copy_opm(XtInstrumentEditor *a, XtInstrumentOpm *opm, int16_t row)
 {
 	if (row < 0 || row > ARRAYSIZE(opm->ar)) return;
 	if (col_from_pos(a->pos) == 0) return;
@@ -282,7 +282,7 @@ static void copy_opm(XtInstrumentEditor *a, XtOpmPatch *opm, int16_t row)
 	a->opm_op_buffer.ame = opm->ame[row];
 }
 
-static void paste_opm(XtInstrumentEditor *a, XtOpmPatch *opm, int16_t row)
+static void paste_opm(XtInstrumentEditor *a, XtInstrumentOpm *opm, int16_t row)
 {
 	if (row < 0 || row > ARRAYSIZE(opm->ar)) return;
 	if (col_from_pos(a->pos) == 0) return;
@@ -299,7 +299,7 @@ static void paste_opm(XtInstrumentEditor *a, XtOpmPatch *opm, int16_t row)
 	opm->ame[row] = a->opm_op_buffer.ame;
 }
 
-static void on_key_opm(XtInstrumentEditor *a, XtOpmPatch *opm, XtTrack *t, XBKeyEvent e)
+static void on_key_opm(XtInstrumentEditor *a, XtInstrumentOpm *opm, XtTrack *t, XBKeyEvent e)
 {
 	if (!(e.modifiers & XB_KEY_MOD_CTRL) && (number_entry_opm(a, opm, e.name))) return;
 
@@ -350,11 +350,10 @@ void xt_instrument_editor_on_key(XtInstrumentEditor *a, int16_t instrument_id, X
 
 	switch (ins->type)
 	{
-		case XT_CHANNEL_OPM:
+		case XT_INSTRUMENT_TYPE_OPM:
 			on_key_opm(a, &ins->opm, t, e);
 			break;
-		case XT_CHANNEL_ADPCM:
-			return;
+		default:
 	}
 
 	if (a->pos != pos_prev)

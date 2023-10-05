@@ -31,20 +31,22 @@ typedef enum XtCmd
 	XT_CMD_MULT_OP3 = '7',
 
 	XT_CMD_BREAK = 'B',
-	XT_CMD_HALT = 'C',
-	XT_CMD_SKIP = 'D',
 
-	XT_CMD_SPEED = 'F',
+	XT_CMD_GROOVE0 = 'E',
+	XT_CMD_GROOVE1 = 'F',
+	XT_CMD_TREMOLO_TYPE = 'G',
+	XT_CMD_VIBRATO_TYPE = 'H',
 
 	XT_CMD_NOISE_EN = 'N',
 
 	XT_CMD_PAN = 'O',
 
+	XT_CMD_PERIOD = 'P',
+
 	XT_CMD_TREMOLO = 'T',
 	XT_CMD_VIBRATO = 'V',
-	XT_CMD_TREMOLO_TYPE = 'G',
-	XT_CMD_VIBRATO_TYPE = 'H',
 
+	XT_CMD_SLIDE = 'L',
 	XT_CMD_SLIDE_UP = 'Q',
 	XT_CMD_SLIDE_DOWN = 'R',
 	XT_CMD_MUTE_DELAY = 'S',
@@ -109,51 +111,42 @@ typedef struct XtFrame
 	int16_t phrase_id[XT_TOTAL_CHANNEL_COUNT];
 } XtFrame;
 
-typedef struct XtSample
-{
-	char name[64];
-	size_t data_size;
-	uint8_t *data;
-} XtSample;
-
 typedef struct XtTrackChannelData
 {
 	// TODO: Dynamic phrase allocation within channel
-	XtChannelType type;
+	XtInstrumentType type;
 	int16_t voice_number;  // Hardware voice number for relevant chip.
 	XtPhrase phrases[XT_PHRASES_PER_CHANNEL];
 	// TODO: Phrase count?
 } XtTrackChannelData;
 
+typedef struct XtTrackMeta
+{
+	char title[64];
+	char author[64];
+	char adpcm_fname[256];
+	uint8_t row_highlight[2];  // Graphical highlight positions
+	int16_t phrase_length;     // How many cell rows are in a phrase.
+	int16_t loop_point;        // Arrangement row to return to (-1 for no loop).
+	int16_t timer_period;      // Starting OPM timer period.
+	uint8_t groove[2];         // Ticks per row (even / odd)
+} XtTrackMeta;
+
 // One whole song in memory.
 typedef struct XtTrack
 {
-	char title[256];
-	int16_t row_highlight[2];
-	// One "frame" is a row in the arrange table. For each column a "phrase" is
-	// referenced by number.
-	int16_t num_frames;
+	XtTrackMeta meta;
+	// "Frames" - top level arrangement unit.
 	XtFrame frames[XT_FRAME_COUNT];
-	// A "phrase" is a single collection of pattern data - notes, etc. Phrases
-	// are separated per-channel.
+	int16_t num_frames;
 
-	// TODO: Dynamic channel count.
+	// "Phrases" - musical entries indexed by channel, referenced by frames.
 	XtTrackChannelData channel_data[XT_TOTAL_CHANNEL_COUNT];
+
 	// Instruments are patch configurations / ADPCM / MIDI mappings.
-	int16_t num_instruments;
 	XtInstrument instruments[XT_INSTRUMENT_COUNT];
-	// ADPCM storage, which can be referenced by an ADPCM instrument.
-	int16_t num_samples;
-	XtSample samples[XT_SAMPLE_COUNT];
+	int16_t num_instruments;
 
-
-	int16_t ticks_per_row;  // Current ticks per row (can change during play)
-	int16_t timer_period;  // Period of ticks.
-
-	int16_t phrase_length;  // How many cell rows are in a phrase.
-	int16_t loop_point;  // Arrangement row to return to (-1 for no repeat).
-
-	char memo[1024];
 } XtTrack;
 
 XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);

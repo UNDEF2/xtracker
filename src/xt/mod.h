@@ -21,7 +21,7 @@ typedef struct XtMod
 	uint8_t speed;  // Accumulator rate. 0 is a magic value to disable the mod.
 	
 	// The output; this is the tonal offset to be applied to the note.
-	int8_t value;
+	int16_t value;
 } XtMod;
 
 void xt_mod_tick(volatile XtMod *mod);

@@ -46,9 +46,9 @@ static inline void opm_update_col_sub(XtRegdataRenderer *a,
 	if (col_active) *cur = ~*cur;
 }
 
-static void opm_reg_paint(XtRegdataRenderer *a, const XtOpmPatch *new, bool force)
+static void opm_reg_paint(XtRegdataRenderer *a, const XtInstrumentOpm *new, bool force)
 {
-	XtOpmPatch *cur = &a->data.opm;
+	XtInstrumentOpm *cur = &a->data.opm;
 	// Left column
 	if (a->edit.active || force || cur->con != new->con)
 	{
@@ -171,14 +171,17 @@ void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins)
 	{
 		switch (ins->type)
 		{
-			case XT_CHANNEL_OPM:
+			case XT_INSTRUMENT_TYPE_OPM:
 				ui_section_title_draw("Instrument Data (OPM)", kbase_x, kbase_y, kbase_w, kbase_h);
 				memset(&a->data.opm, 0xFF, sizeof(a->data.opm));
 				opm_backing_paint();
 				opm_reg_paint(a, &ins->opm, true);
 				break;
-			case XT_CHANNEL_ADPCM:
+			case XT_INSTRUMENT_TYPE_MSM6258:
 				ui_section_title_draw("Instrument Data (ADPCM)", kbase_x, kbase_y, kbase_w, kbase_h);
+				break;
+			case XT_INSTRUMENT_TYPE_OPN_FM:
+				ui_section_title_draw("Instrument Data (OPN-FM)", kbase_x, kbase_y, kbase_w, kbase_h);
 				break;
 		}
 
@@ -190,11 +193,10 @@ void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins)
 	// Repaint any data that does not match what is current.
 	switch (ins->type)
 	{
-		case XT_CHANNEL_OPM:
+		case XT_INSTRUMENT_TYPE_OPM:
 			opm_reg_paint(a, &ins->opm, a->data_repaint);
 			break;
-		case XT_CHANNEL_ADPCM:
-			// TODO: ADPCM painter
+		default:
 			break;
 	}
 	a->data_repaint = false;

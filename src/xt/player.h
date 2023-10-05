@@ -32,10 +32,10 @@ typedef enum XtOpmKeyCommand
 	KEY_COMMAND_OFF,
 } XtOpmKeyCommand;
 
-typedef struct XtOpmChannelState
+typedef struct XtChannelStateOpm
 {
 	// Voice properties.
-	XtOpmPatch patch;
+	XtInstrumentOpm patch;
 	int16_t patch_no;
 	XBOpmPan pan;
 	uint16_t voice;  // Hardware Voice / channel on the OPM.
@@ -54,6 +54,7 @@ typedef struct XtOpmChannelState
 	uint16_t current_pitch;  // Set at the time a note is played.
 	uint16_t target_pitch;  // This is what is sent to the register.
 	int16_t slide_speed;
+	bool disable_slide_once_reached;
 	// Pitch patch information calculated after processing pitch.
 	uint8_t reg_kc_data;
 	uint8_t reg_kf_data;
@@ -64,14 +65,14 @@ typedef struct XtOpmChannelState
 	// Modulation.
 	XtMod mod_vibrato;
 	XtMod mod_tremolo;
-} XtOpmChannelState;
+} XtChannelStateOpm;
 
 typedef struct XtChannelState
 {
-	XtChannelType type;
+	XtInstrumentType type;
 	union
 	{
-		XtOpmChannelState opm;
+		XtChannelStateOpm opm;
 		// TODO: ADPCM, etc.
 	};
 } XtChannelState;
@@ -88,9 +89,11 @@ typedef struct XtPlayer
 	int16_t current_phrase_row;  // Index into the current phrase.
 
 	// Playback timing
-	int16_t current_ticks_per_row;  // Ticks per phrase row.
+	int16_t groove[2];
 	int16_t tick_counter;  // Counts down from the period.
 	int16_t timer_period;  // Period of timer ticks (OPM).
+
+	int16_t pending_break_row;  // Inactive if negative.
 
 	bool noise_enable;
 

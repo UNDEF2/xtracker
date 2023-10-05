@@ -1,5 +1,6 @@
 #include "xt/player.h"
 
+#include <iocs.h>
 #include <stdio.h>
 #include <string.h>
 #include "util/cgprint.h"
@@ -15,7 +16,7 @@
 static uint8_t s_pitch_table[8 * 12];
 
 // Sets TL for a patch, accounting for the current amplitude value.
-static inline void xt_set_opm_patch_tl(volatile XtOpmChannelState *opm_state)
+static inline void xt_set_opm_patch_tl(volatile XtChannelStateOpm *opm_state)
 {
 	// Defines for each algorithm which operators are carriers.
 	const bool carrier_tbl[4 * 8] =
@@ -30,7 +31,7 @@ static inline void xt_set_opm_patch_tl(volatile XtOpmChannelState *opm_state)
 		/* 6 */ false,  true,   true,   true,
 		/* 7 */ true,   true,   true,   true,
 	};
-	volatile XtOpmPatch *patch = &opm_state->patch;
+	volatile XtInstrumentOpm *patch = &opm_state->patch;
 	const uint8_t i = opm_state->voice;
 
 	for (uint16_t j = 0; j < XB_OPM_OP_COUNT; j++)
@@ -60,9 +61,9 @@ static inline void xt_set_opm_patch_tl(volatile XtOpmChannelState *opm_state)
 }
 
 // Sets the whole patch.
-static void xt_set_opm_patch_full(volatile XtOpmChannelState *opm_state)
+static void xt_set_opm_patch_full(volatile XtChannelStateOpm *opm_state)
 {
-	volatile XtOpmPatch *patch = &opm_state->patch;
+	volatile XtInstrumentOpm *patch = &opm_state->patch;
 	const uint8_t i = opm_state->voice;
 	xb_opm_set_lr_fl_con(i, opm_state->pan, patch->fl, patch->con);
 	xb_opm_set_pms_ams(i, patch->pms, patch->ams);
@@ -82,7 +83,7 @@ static void xt_set_opm_patch_full(volatile XtOpmChannelState *opm_state)
 //
 
 // Sets target pitch data based on a note value.
-static inline void xt_set_note_pitch_data(volatile XtOpmChannelState *opm_state,
+static inline void xt_set_note_pitch_data(volatile XtChannelStateOpm *opm_state,
                                           XtNote note)
 {
 	// convert {octave, note} to pitch number
@@ -99,11 +100,11 @@ static inline void xt_set_note_pitch_data(volatile XtOpmChannelState *opm_state,
 }
 
 // Command processing
-static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChannelState *opm_state,
+static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtChannelStateOpm *opm_state,
                                     uint8_t cmd, uint8_t arg)
 {
 	uint16_t opidx = 0;
-	volatile XtOpmPatch *patch = &opm_state->patch;
+	volatile XtInstrumentOpm *patch = &opm_state->patch;
 	if (cmd == XT_CMD_NONE) return;
 	switch (cmd)
 	{
@@ -132,12 +133,19 @@ static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChanne
 		// TODO: These will require some sort of register for which row / etc
 		// is pending, so it can be enacted after all channels have run.
 		case XT_CMD_BREAK:
-		case XT_CMD_HALT:
-		case XT_CMD_SKIP:
+			xt->pending_break_row = arg;
+
+			if (xt->pending_break_row >= xt->track->meta.phrase_length)
+			{
+				xt->pending_break_row = -1;
+			}
 			break;
 
-		case XT_CMD_SPEED:
-			xt->current_ticks_per_row = arg;
+		case XT_CMD_GROOVE0:
+			xt->groove[0] = arg;
+			break;
+		case XT_CMD_GROOVE1:
+			xt->groove[1] = arg;
 			break;
 
 		case XT_CMD_NOISE_EN:
@@ -150,6 +158,11 @@ static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChanne
 			else if (arg == 0x10) opm_state->pan = OPM_PAN_LEFT;
 			else opm_state->pan = OPM_PAN_NONE;
 			xb_opm_set_lr_fl_con(opm_state->voice, opm_state->pan, patch->fl, patch->con);
+			break;
+
+		case XT_CMD_PERIOD:
+			xt->timer_period = arg;
+			xb_opm_set_clka_period(xt->timer_period);
 			break;
 
 		case XT_CMD_VIBRATO:
@@ -166,22 +179,36 @@ static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChanne
 		case XT_CMD_TREMOLO_TYPE:
 			opm_state->mod_vibrato.wave_type = arg;
 			break;
+			
+		case XT_CMD_SLIDE:
+			opm_state->mod_vibrato.intensity = 0;
+			opm_state->mod_vibrato.speed = 0;
+			opm_state->slide_speed = arg;
+			opm_state->disable_slide_once_reached = false;
+			break;
+
 
 		case XT_CMD_SLIDE_UP:
+			opm_state->mod_vibrato.intensity = 0;
+			opm_state->mod_vibrato.speed = 0;
 			opm_state->slide_speed = (arg & 0xF0) >> 4;
 			if (opm_state->slide_speed != 0)
 			{
 				opm_state->note = xt_transpose_note(opm_state->note, (arg & 0x0F));
 				xt_set_note_pitch_data(opm_state, opm_state->note);
+				opm_state->disable_slide_once_reached = true;
 			}
 			break;
 
 		case XT_CMD_SLIDE_DOWN:
+			opm_state->mod_vibrato.intensity = 0;
+			opm_state->mod_vibrato.speed = 0;
 			opm_state->slide_speed = (arg & 0xF0) >> 4;
 			if (opm_state->slide_speed != 0)
 			{
-				opm_state->note = xt_transpose_note(opm_state->note, -(arg & 0x0F));
+				opm_state->note = xt_transpose_note(opm_state->note, (arg & 0x0F));
 				xt_set_note_pitch_data(opm_state, opm_state->note);
+				opm_state->disable_slide_once_reached = true;
 			}
 			break;
 		case XT_CMD_MUTE_DELAY:
@@ -200,7 +227,7 @@ static inline void read_cell_cmd_opm(volatile XtPlayer *xt, volatile XtOpmChanne
 	}
 }
 
-static inline void xt_note_off_reset(volatile XtOpmChannelState *opm_state)
+static inline void xt_note_off_reset(volatile XtChannelStateOpm *opm_state)
 {
 	opm_state->key_command = KEY_COMMAND_OFF;
 	opm_state->key_on_delay_count = 0;
@@ -209,7 +236,7 @@ static inline void xt_note_off_reset(volatile XtOpmChannelState *opm_state)
 }
 
 static inline void read_vol_data_opm(int16_t i,
-                                     volatile XtOpmChannelState *opm_state,
+                                     volatile XtChannelStateOpm *opm_state,
                                      const XtCell *cell)
 {
 	if (cell->vol < 0x80) return;
@@ -218,7 +245,7 @@ static inline void read_vol_data_opm(int16_t i,
 }
 
 static inline void read_note_data_opm(const volatile XtPlayer *xt, int16_t i,
-                                      volatile XtOpmChannelState *opm_state,
+                                      volatile XtChannelStateOpm *opm_state,
                                       const XtCell *cell)
 {
 	if (cell->note == XT_NOTE_NONE) return;
@@ -250,7 +277,7 @@ static inline void read_note_data_opm(const volatile XtPlayer *xt, int16_t i,
 	}
 }
 
-static inline void xt_player_update_key_state(volatile XtOpmChannelState *opm_state)
+static inline void xt_player_update_key_state(volatile XtChannelStateOpm *opm_state)
 {
 	if (opm_state->key_on_delay_count > 0)
 	{
@@ -289,26 +316,39 @@ static inline void xt_player_update_key_state(volatile XtOpmChannelState *opm_st
 static inline void xt_playback_counters(volatile XtPlayer *xt)
 {
 	xt->tick_counter++;
-	if (xt->tick_counter >= xt->current_ticks_per_row)
+	if (xt->tick_counter >= xt->groove[xt->current_phrase_row % 2])
 	{
 		xt->tick_counter = 0;
 		xt->current_phrase_row++;
-		if (xt->current_phrase_row >= xt->track->phrase_length)
+		if (xt->current_phrase_row >= xt->track->meta.phrase_length ||
+		    xt->pending_break_row >= 0)
 		{
-			xt->current_phrase_row = 0;
-			if (!xt->repeat_frame) xt->current_frame++;
+			if (xt->pending_break_row >= 0)
+			{
+				xt->current_phrase_row = xt->pending_break_row;
+				xt->pending_break_row = -1;
+			}
+			else
+			{
+				xt->current_phrase_row = 0;
+			}
+			if (!xt->repeat_frame)
+			{
+				xt->current_frame++;
+			}
 			if (xt->current_frame >= xt->track->num_frames)
 			{
-				if (xt->track->loop_point < 0)
+				if (xt->track->meta.loop_point < 0)
 				{
 					xt->playing = false;
 					xt->current_frame = 0;
 				}
 				else
 				{
-					xt->current_frame = xt->track->loop_point;
+					xt->current_frame = xt->track->meta.loop_point;
 				}
 			}
+			
 		}
 	}
 }
@@ -319,7 +359,7 @@ void channel_reset(volatile XtChannelState *chan, int16_t voice)
 	{
 		default:
 			break;
-		case XT_CHANNEL_OPM:
+		case XT_INSTRUMENT_TYPE_OPM:
 			chan->opm.voice = voice;
 			chan->opm.pan = OPM_PAN_BOTH;
 			chan->opm.key_state = KEY_STATE_OFF;
@@ -330,6 +370,7 @@ void channel_reset(volatile XtChannelState *chan, int16_t voice)
 			chan->opm.mute_delay_count = 0;
 			chan->opm.cut_delay_count = 0;
 			xb_opm_set_key_on(chan->opm.voice, 0x0);
+
 			break;
 	}
 }
@@ -358,7 +399,7 @@ void xt_player_init(volatile XtPlayer *xt, const XtTrack *track)
 	}
 }
 
-void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelState *opm_state)
+void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtChannelStateOpm *opm_state)
 {
 	const XtTrackChannelData *channel_data = &xt->track->channel_data[i];
 	const uint16_t phrase_idx = xt->track->frames[xt->current_frame].phrase_id[i];
@@ -377,9 +418,7 @@ void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelS
 		}
 	}
 
-	xt_mod_tick(&opm_state->mod_vibrato);
-	xt_mod_tick(&opm_state->mod_tremolo);
-
+	// Sliding
 	if (opm_state->key_state == KEY_STATE_ON)
 	{
 		if (opm_state->slide_speed == 0)
@@ -391,24 +430,35 @@ void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelS
 			if (opm_state->current_pitch < opm_state->target_pitch)
 			{
 				opm_state->current_pitch += opm_state->slide_speed;
-				if (opm_state->current_pitch > opm_state->target_pitch)
+				if (opm_state->current_pitch >= opm_state->target_pitch)
 				{
+					if (opm_state->disable_slide_once_reached) opm_state->slide_speed = 0;
 					opm_state->current_pitch = opm_state->target_pitch;
 				}
 			}
 			else if (opm_state->current_pitch > opm_state->target_pitch)
 			{
 				opm_state->current_pitch -= opm_state->slide_speed;
-				if (opm_state->current_pitch < opm_state->target_pitch)
+				if (opm_state->current_pitch <= opm_state->target_pitch)
 				{
+					if (opm_state->disable_slide_once_reached) opm_state->slide_speed = 0;
 					opm_state->current_pitch = opm_state->target_pitch;
 				}
 			}
 		}
 	}
 
+	xt_mod_tick(&opm_state->mod_tremolo);
+	// TODO: Apply tremolo output
+
 	// compensate for 4MHz OPM
 	int16_t pnum = (int16_t)opm_state->current_pitch + OPM_CLOCK_ADJUST;
+
+	if (opm_state->mod_vibrato.intensity > 0)
+	{
+		xt_mod_tick(&opm_state->mod_vibrato);
+		pnum += opm_state->mod_vibrato.value;
+	}
 
 	// compensate for note offset
 	pnum -= (1 << 6);
@@ -428,12 +478,20 @@ void xt_player_poll_opm(volatile XtPlayer *xt, int16_t i, volatile XtOpmChannelS
 	xb_opm_set_kc(opm_state->voice, opm_state->reg_kc_data);
 	xb_opm_set_key_fraction(opm_state->voice, opm_state->reg_kf_data);
 
+	if (xt->noise_enable && opm_state->voice == 7)
+	{
+		// TODO: Figure out how noise works and set it properly
+		xb_opm_set_noise(true, kc);
+	}
+
 	// TODO: Add vibrato to the pitch register caches (not applied to the
 	// pitch data itself)
 
 	xt_player_update_key_state(opm_state);
+
+//	_iocs_ledmod(opm_state->voice, opm_state->key_state == KEY_STATE_ON);
 }
-volatile 
+
 void xt_player_poll(volatile XtPlayer *xt)
 {
 	if (!xt->playing) return;
@@ -447,11 +505,11 @@ void xt_player_poll(volatile XtPlayer *xt)
 			default:
 				break;
 
-			case XT_CHANNEL_OPM:
+			case XT_INSTRUMENT_TYPE_OPM:
 				xt_player_poll_opm(xt, i, &chan->opm);
 				break;
 
-			case XT_CHANNEL_ADPCM:
+			case XT_INSTRUMENT_TYPE_MSM6258:
 				// TODO
 				break;
 		}
@@ -466,8 +524,8 @@ void xt_player_update_opm_registers(volatile XtPlayer *xt)
 	// Commit registers based on new state.
 	for (uint16_t i = 0; i < 8; i++)
 	{
-		if (xt->chan[i].type != XT_CHANNEL_OPM) continue;
-		volatile XtOpmChannelState *opm_state = &xt->chan[i].opm;
+		if (xt->chan[i].type != XT_INSTRUMENT_TYPE_OPM) continue;
+		volatile XtChannelStateOpm *opm_state = &xt->chan[i].opm;
 		xt_set_opm_patch_tl(opm_state);
 
 		// Key state
@@ -498,6 +556,7 @@ static inline void cut_all_opm_sound(void)
 		{
 			xb_opm_set_tl(i, j, 0x7F);
 		}
+		//_iocs_ledmod(i, 0);
 	}
 	xb_opm_commit();
 }
@@ -506,7 +565,6 @@ void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_f
 {
 	const uint8_t s_old_ipl = xb_set_ipl(XB_IPL_ALLOW_NONE);
 	cut_all_opm_sound();
-	xb_opm_set_clka_period(xt->timer_period);
 
 	xt->current_frame = frame;
 	xt->repeat_frame = repeat_frame;
@@ -514,11 +572,13 @@ void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_f
 	xt->current_phrase_row = 0;
 	xt->tick_counter = 0;
 	xt->noise_enable = false;
+	xt->pending_break_row = -1;
 
 	// Initial state that comes from the track.
-	xt->timer_period = xt->track->timer_period;
-	xt->current_ticks_per_row = xt->track->ticks_per_row;
-
+	xt->groove[0] = xt->track->meta.groove[0];
+	xt->groove[1] = xt->track->meta.groove[1];
+	xt->timer_period = xt->track->meta.timer_period;
+	xb_opm_set_clka_period(xt->timer_period);
 
 	// Limit an unreasonable frame request
 	if (xt->current_frame >= xt->track->num_frames)
@@ -530,6 +590,7 @@ void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_f
 	{
 		channel_reset(&xt->chan[i], i);
 	}
+	xb_opm_set_noise(false, 0);
 
 	xt->playing = true;
 	xb_set_ipl(s_old_ipl);

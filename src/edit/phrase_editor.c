@@ -75,7 +75,7 @@ static void frame_up(XtPhraseEditor *p, const XtTrack *t)
 
 static void cursor_down(XtPhraseEditor *p, const XtTrack *t, bool allow_frame)
 {
-	if (p->row >= t->phrase_length - 1)
+	if (p->row >= t->meta.phrase_length - 1)
 	{
 		if (allow_frame)
 		{
@@ -95,7 +95,7 @@ static void cursor_up(XtPhraseEditor *p, const XtTrack *t, bool allow_frame)
 	{
 		if (allow_frame)
 		{
-			p->row = t->phrase_length - 1;
+			p->row = t->meta.phrase_length - 1;
 			frame_up(p, t);
 		}
 	}
@@ -522,20 +522,21 @@ static const XtKeyCommandPairing command_lookup[] =
 	{XB_KEY_7, XT_CMD_MULT_OP3},
 
 	{XB_KEY_B, XT_CMD_BREAK},
-	{XB_KEY_C, XT_CMD_HALT},
-	{XB_KEY_D, XT_CMD_SKIP},
 
-	{XB_KEY_F, XT_CMD_SPEED},
+	{XB_KEY_E, XT_CMD_GROOVE0},
+	{XB_KEY_F, XT_CMD_GROOVE1},
+	{XB_KEY_G, XT_CMD_TREMOLO_TYPE},
+	{XB_KEY_H, XT_CMD_VIBRATO_TYPE},
 
 	{XB_KEY_N, XT_CMD_NOISE_EN},
 
 	{XB_KEY_O, XT_CMD_PAN},
+	{XB_KEY_P, XT_CMD_PERIOD},
 
 	{XB_KEY_T, XT_CMD_TREMOLO},
 	{XB_KEY_V, XT_CMD_VIBRATO},
-	{XB_KEY_G, XT_CMD_TREMOLO_TYPE},
-	{XB_KEY_H, XT_CMD_VIBRATO_TYPE},
 
+	{XB_KEY_L, XT_CMD_SLIDE},
 	{XB_KEY_Q, XT_CMD_SLIDE_UP},
 	{XB_KEY_R, XT_CMD_SLIDE_DOWN},
 	{XB_KEY_S, XT_CMD_MUTE_DELAY},
@@ -658,7 +659,7 @@ static void select_limit_subpos_by_col_sub(XtPhraseEditor *p,
 	const bool right_edge = (column == column_count - 1);
 
 	*new_left_sub_pos = left_edge ? base_left_sub_pos : CURSOR_SUBPOS_NOTE;
-	*new_right_sub_pos = right_edge ? base_right_sub_pos : CURSOR_SUBPOS_ARG1_LOW;
+	*new_right_sub_pos = right_edge ? base_right_sub_pos : CURSOR_SUBPOS_ARG3_LOW;
 }
 
 // Performs a copy from the selected region.

@@ -94,11 +94,12 @@ static bool interrupts_init(void)
 		return false;
 	}
 
-	xb_opm_set_clka_period(0x100);  // Slow default
+	xb_opm_set_clka_period(0x300);  // Slow default
+
+	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 	xb_opm_set_timer_flags(OPM_TIMER_FLAG_IRQ_EN_A | OPM_TIMER_FLAG_LOAD_A | OPM_TIMER_FLAG_F_RESET_A);
 
 	xb_mfp_set_interrupt_enable(XB_MFP_INT_FM_SOUND_SOURCE, true);
-	xb_mfp_set_interrupt_enable(XB_MFP_INT_VDISP, true);
 
 	xb_set_ipl(XB_IPL_ALLOW_ALL);
 	return true;
@@ -122,7 +123,7 @@ void set_demo_instruments(void)
 	XtInstrument *ins = &s_track.instruments[0];
 
 	// Instrument $00
-	ins->type = XT_CHANNEL_OPM;
+	ins->type = XT_INSTRUMENT_TYPE_OPM;
 	snprintf(ins->name, sizeof(ins->name), "Bass");
 
 	// In furnace UI order
@@ -283,7 +284,7 @@ static void draw_chanlabels(int16_t cam_x)
 	for (int16_t i = 0; i < XT_RENDER_VISIBLE_CHANNELS; i++)
 	{
 		const int chan_idx = left_visible_channel + i;
-		const XtChannelType type = s_track.channel_data[chan_idx].type;
+		const XtInstrumentType type = s_track.channel_data[chan_idx].type;
 		ui_chanlabel_set(i, chan_idx, type);
 	}
 }
@@ -644,6 +645,8 @@ int main(int argc, char **argv)
 	xt_palette_init();
 	xb_keys_init(NULL);
 
+	_iocs_b_locate(0, 16);
+
 	// Interrupt configuration.
 	if (!interrupts_init()) goto done;
 
@@ -688,6 +691,7 @@ int main(int argc, char **argv)
 done:
 	interrupts_shutdown();
 	display_config_shutdown();
+	for (uint16_t i = 0; i < 16; i++) _iocs_ledmod(i, 0);
 
 	_dos_kflushio(0xFF);
 

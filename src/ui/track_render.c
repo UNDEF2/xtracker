@@ -225,13 +225,13 @@ void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame)
 
 	int16_t draw_x = 0;
 
-	const bool highlight_changed = (r->row_highlight[0] != track->row_highlight[0] ||
-	                                r->row_highlight[1] != track->row_highlight[1]);
+	const bool highlight_changed = (r->row_highlight[0] != track->meta.row_highlight[0] ||
+	                                r->row_highlight[1] != track->meta.row_highlight[1]);
 
 	if (highlight_changed)
 	{
-		r->row_highlight[0] = track->row_highlight[0];
-		r->row_highlight[1] = track->row_highlight[1];
+		r->row_highlight[0] = track->meta.row_highlight[0];
+		r->row_highlight[1] = track->meta.row_highlight[1];
 	}
 
 	for (int16_t i = 0; i < ARRAYSIZE(r->chan); i++)
@@ -258,7 +258,7 @@ void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame)
 			chan->dirty = false;
 
 			const int16_t hl[2] = {r->row_highlight[0], r->row_highlight[1]};
-			const int16_t len = track->phrase_length;
+			const int16_t len = track->meta.phrase_length;
 
 			switch (track->channel_data[i].type)
 			{
@@ -266,11 +266,11 @@ void xt_track_renderer_tick(XtTrackRenderer *r, XtTrack *track, uint16_t frame)
 					draw_empty_column(draw_x, len, hl[0], hl[1]);
 					break;
 
-				case XT_CHANNEL_OPM:
+				case XT_INSTRUMENT_TYPE_OPM:
 					draw_opm_column(phrase, draw_x, len, hl[0], hl[1]);
 					break;
 
-				case XT_CHANNEL_ADPCM:
+				case XT_INSTRUMENT_TYPE_MSM6258:
 					// TODO
 					draw_empty_column(draw_x, len, hl[0], hl[1]);
 					break;
