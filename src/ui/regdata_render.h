@@ -15,6 +15,7 @@ typedef struct XtRegdataRenderer
 	struct
 	{
 		int16_t row, column;  // Selection pos
+		bool active;
 	} edit;
 
 	bool full_repaint;
@@ -25,6 +26,10 @@ typedef struct XtRegdataRenderer
 void xt_regdata_renderer_init(XtRegdataRenderer *a);
 
 void xt_regdata_renderer_tick(XtRegdataRenderer *a, const XtInstrument *ins);
+
+void xt_regdata_renderer_enable_edit_cursor(XtRegdataRenderer *s, bool active);
+
+void xt_regdata_renderer_set_edit_cursor(XtRegdataRenderer *s, int16_t row, int16_t column);
 
 // Mark all frames and the border as needing a redraw.
 void xt_regdata_renderer_request_redraw(XtRegdataRenderer *a, bool content_only);

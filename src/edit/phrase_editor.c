@@ -393,7 +393,7 @@ typedef struct XtKeyNumberPairing
 	int8_t value;
 } XtKeyNumberPairing;
 
-static const XtKeyNumberPairing number_lookup[] =
+static const XtKeyNumberPairing knumber_key_lookup[] =
 {
 	{XB_KEY_0, 0},
 	{XB_KEY_1, 1},
@@ -427,9 +427,9 @@ static const XtKeyNumberPairing number_lookup[] =
 static inline bool handle_number_entry(XtPhraseEditor *p, XtTrack *t,
                                        XBKeyEvent e)
 {
-	for (uint16_t i = 0; i < ARRAYSIZE(number_lookup); i++)
+	for (uint16_t i = 0; i < ARRAYSIZE(knumber_key_lookup); i++)
 	{
-		const XtKeyNumberPairing *m = &number_lookup[i];
+		const XtKeyNumberPairing *m = &knumber_key_lookup[i];
 		if (e.name != m->key) continue;
 		XtPhrase *phrase = xt_track_get_phrase(t, p->column, p->frame);
 		XtCell *cell = &phrase->cells[p->row];

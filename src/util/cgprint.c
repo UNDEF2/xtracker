@@ -38,6 +38,13 @@ void cgprint(int16_t plane, uint16_t attr, const char *s,
 	cgprint_string_sub(s_cgdat, dest, s, attr);
 }
 
+void cgprint_noalpha(int16_t plane, uint32_t colors, const char *s,
+                     int16_t x, int16_t y)
+{
+	volatile uint16_t *dest = get_cgram_ptr(plane, x, y);
+	cgprint_string_noalpha_sub(s_cgdat, dest, s, colors);
+}
+
 // Draw a CG graphic to the CG plane
 void cgtile(int16_t plane, int16_t x, int16_t y,
             uint16_t tile, uint16_t w, uint16_t h)

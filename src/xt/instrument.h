@@ -63,6 +63,7 @@ typedef struct XtOpmPatch
 	};
 	union
 	{
+		// TODO: use int8_t once a signed entry interface is in
 		uint8_t dt1[XB_OPM_OP_COUNT];
 		uint32_t dt1_u32;
 	};

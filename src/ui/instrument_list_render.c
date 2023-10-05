@@ -39,8 +39,8 @@ static void draw_list(XtInstrumentListRenderer *a, const XtTrack *t)
 		cgprint_hex2(XT_UI_PLANE, pal,
 		             kbase_x + XT_UI_INSTRUMENT_LIST_NUM_OFFS_X, draw_y, id);
 		// TODO: Icon?
-		cgprint(XT_UI_PLANE, pal, ins->name,
-		        kbase_x + XT_UI_INSTRUMENT_LIST_NAME_OFFS_X, draw_y);
+		cgprint_noalpha(XT_UI_PLANE, (XT_PAL_BACK << 16) | pal, ins->name,
+		                kbase_x + XT_UI_INSTRUMENT_LIST_NAME_OFFS_X, draw_y);
 		draw_y += XT_UI_ROW_SPACING;
 	}
 }

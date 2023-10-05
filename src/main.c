@@ -16,6 +16,7 @@
 #include "core/macro.h"
 #include "edit/phrase_editor.h"
 #include "edit/arrange_editor.h"
+#include "edit/instrument_editor.h"
 #include "core/display_config.h"
 #include "util/cgprint.h"
 #include "ui/arrange_render.h"
@@ -42,6 +43,7 @@ static XtTrackRenderer s_track_renderer;
 static XtPhraseEditor s_phrase_editor;
 static XtArrangeEditor s_arrange_editor;
 static XtInstrumentListRenderer s_instrument_list_renderer;
+static XtInstrumentEditor s_instrument_editor;
 
 static const char *s_filename;
 
@@ -202,7 +204,7 @@ void set_demo_instruments(void)
 	}
 
 	ins++;
-	snprintf(ins->name, sizeof(ins->name), "Just Sine");
+	snprintf(ins->name, sizeof(ins->name), "Sine");
 	ins->opm.fl = 1;
 	ins->opm.con = 0;
 	ins->opm.pms = 0;
@@ -250,7 +252,7 @@ void set_demo_instruments(void)
 	ins->opm.rr [3] = 15;  // AKA R
 	ins->opm.tl [3] = 5;
 	ins->opm.ks [3] = 1;  // AKA RS
-	ins->opm.mul[3] = 4;  // AKA ML
+	ins->opm.mul[3] = 1;  // AKA ML
 	ins->opm.dt1[3] = 0; // AKA DT
 	ins->opm.dt2[3] = 0;  // AKA DT2
 	ins->opm.ame[3] = 0;  // AKA AM
@@ -437,6 +439,11 @@ static void editor_render(XtUiFocus focus)
 			                         s_arrange_editor.frame, s_arrange_editor.column);
 			break;
 		case XT_UI_FOCUS_INSTRUMENT_SEL:
+			xt_regdata_renderer_enable_edit_cursor(&s_regdata_renderer, false);
+			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track.instruments[s_phrase_editor.instrument]);
+			xt_instrument_list_renderer_tick(&s_instrument_list_renderer, &s_track,
+			                                 s_phrase_editor.instrument);
+			break;
 		case XT_UI_FOCUS_INSTRUMENT_EDIT:
 			xt_regdata_renderer_tick(&s_regdata_renderer, &s_track.instruments[s_phrase_editor.instrument]);
 			xt_instrument_list_renderer_tick(&s_instrument_list_renderer, &s_track,
@@ -606,7 +613,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 							focus = XT_UI_FOCUS_PATTERN;
 							break;
 
-						// TODO: Explicit F key to edit?
+						case XB_KEY_F5:
+							focus = XT_UI_FOCUS_INSTRUMENT_EDIT;
+							break;
 					}
 
 				}
@@ -614,6 +623,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				break;
 
 			case XT_UI_FOCUS_INSTRUMENT_EDIT:
+				xt_instrument_editor_on_key(&s_instrument_editor,
+				                            s_phrase_editor.instrument,
+				                            &s_track, key_event);
 				if (key_event.name == XB_KEY_ESC)
 				{
 					focus = XT_UI_FOCUS_INSTRUMENT_SEL;
@@ -645,6 +657,7 @@ int main(int argc, char **argv)
 	xt_phrase_editor_init(&s_phrase_editor, &s_track);
 	xt_regdata_renderer_init(&s_regdata_renderer);
 	xt_instrument_list_renderer_init(&s_instrument_list_renderer);
+	xt_instrument_editor_init(&s_instrument_editor, &s_regdata_renderer);
 
 	ui_backing_draw();
 

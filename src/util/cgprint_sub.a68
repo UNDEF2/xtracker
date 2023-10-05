@@ -39,10 +39,11 @@ str_copy_top:
 			.rept	CGPRINT_CHAR_W
 			move.b	(a3)+, d0
 			beq	9f  /* Skip transparent pixels */
-			and.w	d1, d0     /* mask against color */
-			move.w	d0, (a1)
+			move.w	d1, (a1)+
+			bra	8f
 9:
 			addq	#2, a1
+8:
 			.endr  /* CGPRINT_CHAR_W */
 
 		/* Next row */
@@ -59,6 +60,65 @@ str_copy_top:
 
 str_done:
 	movem.l	(sp)+, a2-a3
+	rts
+
+#
+# void cgprint_string_noalpha_sub(const uint8_t *cgdat, volatile uint16_t *dest_addr,
+#                                 const char *str, uint32_t colors);
+#
+	.global	cgprint_string_noalpha_sub
+cgprint_string_noalpha_sub:
+.set	SPID, 4+(3*4)
+.set	ARG_CGDAT, SPID+(0*4)
+.set	ARG_DEST_ADDR, SPID+(1*4)
+.set	ARG_STR, SPID+(2*4)
+.set	ARG_COLORS, SPID+(3*4)
+	movem.l	d2/a2-a3, -(sp)
+	move.l	ARG_STR(sp), a0
+	move.l	ARG_DEST_ADDR(sp), a1
+	move.l	ARG_CGDAT(sp), a2
+	move.w	ARG_COLORS+2(sp), d1
+	andi.w	#0x00FF, d1
+	move.w	ARG_COLORS(sp), d2
+	andi.w	#0x00FF, d2
+
+str_copy_top_noa:
+	moveq	#0, d0
+	move.b	(a0)+, d0
+	beq	str_done_noa
+	/* Multiply d0 by 64 to get tile index */
+	lsl.l	#6, d0
+	lea	(a2, d0.l), a3
+
+		.rept	CGPRINT_CHAR_H
+
+			/* Draw horizontal pixels from the tile */
+			.rept	CGPRINT_CHAR_W
+			move.b	(a3)+, d0
+			bne	9f
+
+			/* Translucent case */
+			move.w	d2, (a1)+
+			bra	8f
+9:			/* Opaque case */
+			move.w	d1, (a1)+
+8:
+			.endr  /* CGPRINT_CHAR_W */
+
+		/* Next row */
+		addq	#2, a3  /* Skip unused 2px from tile */
+		adda.w	#((512 - CGPRINT_CHAR_W) * 2).l, a1
+
+		.endr  /* CGPRINT_CHAR_H */
+
+	suba.w	#(((CGPRINT_CHAR_H * 512) - CGPRINT_CHAR_W) * 2).l, a1
+
+	bra	str_copy_top_noa
+
+	rts
+
+str_done_noa:
+	movem.l	(sp)+, d2/a2-a3
 	rts
 
 #
