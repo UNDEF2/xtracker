@@ -633,6 +633,7 @@ int main(int argc, char **argv)
 	_dos_super(0);
 
 	display_config_init();
+	_dos_c_curoff();
 	xt_palette_init();
 	xb_keys_init(NULL);
 
@@ -656,6 +657,8 @@ int main(int argc, char **argv)
 
 	ui_backing_draw();
 
+	xt_track_init(&s_track);
+	set_demo_instruments();
 	// Track file load.
 	bool file_loaded = false;
 	if (argc > 1) s_filename = argv[1];
@@ -663,8 +666,6 @@ int main(int argc, char **argv)
 
 	if (!file_loaded)
 	{
-		xt_track_init(&s_track);
-		set_demo_instruments();
 		if (s_filename) xt_track_save_to_file(&s_track, s_filename);
 	}
 
@@ -687,5 +688,6 @@ done:
 
 	_dos_kflushio(0xFF);
 
+	_dos_c_curon();
 	return 0;
 }

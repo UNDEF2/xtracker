@@ -2,6 +2,8 @@
 #define XT_TRACK_H
 
 #define XT_CMD_COL_COUNT 3
+// this is the size of the buffer, title can't use last byte since need NUL
+#define XT_TITLE_COUNT 256
 
 // Some program configuration.
 #define XT_PHRASE_MAX_ROWS 64
@@ -149,7 +151,12 @@ typedef struct XtTrack
 
 } XtTrack;
 
-XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel, uint16_t frame);
+XtPhrase *xt_track_get_phrase(XtTrack *t, uint16_t channel,
+							  uint16_t frame);
+
+// avoid type safety violation factory
+const XtPhrase *xt_track_get_phrase_const(const XtTrack *t, uint16_t channel,
+										  uint16_t frame);
 
 void xt_track_init(XtTrack *t);
 XtResult xt_track_save_to_file(const XtTrack *t, const char *fname);
