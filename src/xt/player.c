@@ -573,6 +573,8 @@ void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_f
 	xt->tick_counter = 0;
 	xt->noise_enable = false;
 	xt->pending_break_row = -1;
+	opm_state->mod_vibrato.intensity = 0;
+	opm_state->mod_vibrato.speed = 0;
 
 	// Initial state that comes from the track.
 	xt->groove[0] = xt->track->meta.groove[0];
