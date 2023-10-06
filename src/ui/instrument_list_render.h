@@ -16,7 +16,8 @@ typedef struct XtInstrumentListRenderer
 		int16_t row, column;  // Selection pos
 	} edit;
 
-	bool full_repaint;
+	int16_t last_num_instruments;
+
 	bool data_repaint;
 } XtInstrumentListRenderer;
 

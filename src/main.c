@@ -17,6 +17,7 @@
 #include "edit/phrase_editor.h"
 #include "edit/arrange_editor.h"
 #include "edit/instrument_editor.h"
+#include "edit/instrument_list_editor.h"
 #include "core/display_config.h"
 #include "util/cgprint.h"
 #include "ui/arrange_render.h"
@@ -44,6 +45,7 @@ static XtPhraseEditor s_phrase_editor;
 static XtArrangeEditor s_arrange_editor;
 static XtInstrumentListRenderer s_instrument_list_renderer;
 static XtInstrumentEditor s_instrument_editor;
+static XtInstrumentListEditor s_instrument_list_editor;
 
 static const char *s_filename;
 
@@ -310,6 +312,12 @@ static void draw_fnlabels(XtUiFocus focus, bool ctrl_held)
 			break;
 		case XT_UI_FOCUS_ARRANGE_EDIT:
 			xt_arrange_editor_set_fnlabels();
+			break;
+		case XT_UI_FOCUS_INSTRUMENT_SEL:
+			xt_instrument_list_editor_set_fnlabels();
+			break;
+		case XT_UI_FOCUS_INSTRUMENT_EDIT:
+			xt_instrument_editor_set_fnlabels();
 			break;
 		default:
 			break;
@@ -590,37 +598,17 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 					focus_on_pattern();
 					focus = XT_UI_FOCUS_PATTERN;
 				}
-
-				if (!(key_event.modifiers & XB_KEY_MOD_KEY_UP))
+				else if (key_event.name == XB_KEY_F5 ||
+				         key_event.name == XB_KEY_E)
 				{
-					switch (key_event.name)
-					{
-						default:
-							break;
-						case XB_KEY_DOWN:
-							s_phrase_editor.instrument++;
-							if (s_phrase_editor.instrument >= s_track.num_instruments)
-							{
-								s_phrase_editor.instrument = s_track.num_instruments - 1;
-							}
-							break;
-
-						case XB_KEY_UP:
-							if (s_phrase_editor.instrument > 0) s_phrase_editor.instrument--;
-							break;
-
-						case XB_KEY_ESC:
-							focus_on_pattern();
-							focus = XT_UI_FOCUS_PATTERN;
-							break;
-
-						case XB_KEY_F5:
-							focus = XT_UI_FOCUS_INSTRUMENT_EDIT;
-							break;
-					}
-
+					focus = XT_UI_FOCUS_INSTRUMENT_EDIT;
+					xt_regdata_renderer_enable_edit_cursor(&s_regdata_renderer, true);
+					xt_regdata_renderer_request_redraw(&s_regdata_renderer,
+					                                   /*content_only=*/true);
 				}
-
+				xt_instrument_list_editor_on_key(&s_instrument_list_editor,
+				                                 &s_phrase_editor.instrument,
+				                                 &s_track, key_event);
 				break;
 
 			case XT_UI_FOCUS_INSTRUMENT_EDIT:
@@ -630,6 +618,9 @@ static XtUiFocus editor_logic(XtUiFocus focus)
 				if (key_event.name == XB_KEY_ESC)
 				{
 					focus = XT_UI_FOCUS_INSTRUMENT_SEL;
+					xt_regdata_renderer_enable_edit_cursor(&s_regdata_renderer, false);
+					xt_regdata_renderer_request_redraw(&s_regdata_renderer,
+					                                   /*content_only=*/true);
 				}
 				break;
 		}
@@ -661,6 +652,7 @@ int main(int argc, char **argv)
 	xt_regdata_renderer_init(&s_regdata_renderer);
 	xt_instrument_list_renderer_init(&s_instrument_list_renderer);
 	xt_instrument_editor_init(&s_instrument_editor, &s_regdata_renderer);
+	xt_instrument_list_editor_init(&s_instrument_list_editor, &s_instrument_list_renderer);
 
 	ui_backing_draw();
 

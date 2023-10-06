@@ -369,6 +369,8 @@ void channel_reset(volatile XtChannelState *chan, int16_t voice)
 			chan->opm.key_on_delay_count = 0;
 			chan->opm.mute_delay_count = 0;
 			chan->opm.cut_delay_count = 0;
+			chan->opm.mod_vibrato.intensity = 0;
+			chan->opm.mod_vibrato.speed = 0;
 			xb_opm_set_key_on(chan->opm.voice, 0x0);
 
 			break;
@@ -573,8 +575,6 @@ void xt_player_start_playing(volatile XtPlayer *xt, int16_t frame, bool repeat_f
 	xt->tick_counter = 0;
 	xt->noise_enable = false;
 	xt->pending_break_row = -1;
-	opm_state->mod_vibrato.intensity = 0;
-	opm_state->mod_vibrato.speed = 0;
 
 	// Initial state that comes from the track.
 	xt->groove[0] = xt->track->meta.groove[0];

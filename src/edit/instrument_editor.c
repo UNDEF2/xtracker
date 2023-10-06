@@ -321,12 +321,10 @@ static void on_key_opm(XtInstrumentEditor *a, XtInstrumentOpm *opm, XtTrack *t, 
 			break;
 		case XB_KEY_C:
 			if (!(e.modifiers & XB_KEY_MOD_CTRL)) break;
-		case XB_KEY_F3:
 			copy_opm(a, opm, row_from_pos(a->pos));
 			break;
 		case XB_KEY_V:
 			if (!(e.modifiers & XB_KEY_MOD_CTRL)) break;
-		case XB_KEY_F4:
 			paste_opm(a, opm, row_from_pos(a->pos));
 			break;
 	}
@@ -371,7 +369,7 @@ void xt_instrument_editor_set_fnlabels(void)
 {
 	ui_fnlabel_set(0, "Set Min");
 	ui_fnlabel_set(1, "Set Max");
-	ui_fnlabel_set(2, "Copy Op");
-	ui_fnlabel_set(3, "Paste");
-	ui_fnlabel_set(4, "");
+	ui_fnlabel_set(2, "");
+	ui_fnlabel_set(3, "Import");
+	ui_fnlabel_set(4, "Export");
 }

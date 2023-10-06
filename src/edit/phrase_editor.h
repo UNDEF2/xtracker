@@ -42,7 +42,7 @@ typedef struct XtPhraseEditor
 	int16_t row;  // Index into the Frame.
 	int16_t column;  // Horizontally, which column the cursor lies in.
 
-	uint16_t instrument;  // Currently selected instrument number.
+	int16_t instrument;  // Currently selected instrument number.
 	uint16_t octave;  // Currently selected entry octave (for the bottom row).
 	uint16_t step_size;  // Rows to go down after having entered a note.
 

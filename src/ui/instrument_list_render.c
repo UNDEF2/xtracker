@@ -17,7 +17,7 @@ void xt_instrument_list_renderer_init(XtInstrumentListRenderer *a)
 {
 	memset(a, 0, sizeof(*a));
 	a->instrument_id = -1;
-	a->full_repaint = true;
+	a->last_num_instruments = -1;
 }
 
 static void draw_list(XtInstrumentListRenderer *a, const XtTrack *t)
@@ -56,12 +56,12 @@ void xt_instrument_list_renderer_tick(XtInstrumentListRenderer *a,
 		a->instrument_id = instrument_id;
 	}
 
-	if (a->full_repaint)
+	if (a->last_num_instruments != t->num_instruments)
 	{
 		ui_section_title_draw("Instruments", kbase_x, kbase_y, kbase_w, kbase_h);
+		a->last_num_instruments = t->num_instruments;
 
 		// As part of a full repaint, the instrument data will be redrawn as well.
-		a->full_repaint = false;
 		a->data_repaint = true;
 	}
 
@@ -70,6 +70,7 @@ void xt_instrument_list_renderer_tick(XtInstrumentListRenderer *a,
 		draw_list(a, t);
 		a->data_repaint = false;
 	}
+
 }
 
 // Mark all frames and the border as needing a redraw.
@@ -77,5 +78,5 @@ void xt_instrument_list_renderer_request_redraw(XtInstrumentListRenderer *a,
                                                 bool content_only)
 {
 	a->data_repaint = true;
-	if (!content_only) a->full_repaint = true;
+	if (!content_only) a->last_num_instruments = -1;
 }
