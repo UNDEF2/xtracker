@@ -153,6 +153,7 @@ XtResult xt_phrase_save_to_file(int16_t channel, int16_t frame,
 			phrase_pos[0] = skip;
 			phrase_pos[1] = mask;
 			phrase_pos = cell_pos;
+			skip = 0;
 		}
 	}
 	// frame was empty
